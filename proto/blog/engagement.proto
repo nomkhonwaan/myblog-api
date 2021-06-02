@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package myblog.proto.blog;
+
+// The social network engagement information.
+message Engagement {
+  uint32 share_count = 1;
+}

@@ -1,0 +1,21 @@
+[package]
+name = "myblog"
+version = "3.0.0"
+authors = ["Natcha Luangaroonchai <me@nomkhonwaan.com>"]
+edition = "2018"
+
+[[bin]]
+name = "myblog"
+path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4"
+clap = "3.0.0-beta.2"
+mongodb = "1.2.1"
+prost = "0.6.1"
+prost-types = "0.6.1"
+tokio = { version = "0.2", features = ["macros"] }
+tonic = "0.3"
+
+[build-dependencies]
+tonic-build = "0.3"
