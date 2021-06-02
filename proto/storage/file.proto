@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package myblog.proto.storage;
+package myblog.api.proto.storage;
 
 import "google/protobuf/timestamp.proto";
   

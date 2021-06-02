@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package myblog.proto.blog;
+package myblog.api.proto.blog;
 
 import "google/protobuf/timestamp.proto";
 import "proto/blog/engagement.proto";
@@ -27,14 +27,14 @@ message Post {
   google.protobuf.Timestamp published_at = 7;
   // Identifier of the author
   string author_id = 8;
-//  // List of categories that the post belonging to
-//  repeated Taxonomy categories = 9;
-//  // List of tags that the post belonging to
-//  repeated Taxonomy tags = 10;
-//  // A featured image to be shown at the archive page as a cover image
-//  myblog.proto.storage.File featured_image = 11;
-//  // List of attachment (image, video, document, etc.) are belonging to the post
-//  repeated myblog.proto.storage.File attachments = 12;
+  // List of categories that the post belonging to
+  repeated Taxonomy categories = 9;
+  // List of tags that the post belonging to
+  repeated Taxonomy tags = 10;
+  // A featured image to be shown at the archive page as a cover image
+  myblog.api.proto.storage.File featured_image = 11;
+  // List of attachment (image, video, document, etc.) are belonging to the post
+  repeated myblog.api.proto.storage.File attachments = 12;
   // Date-time that the post was created
   google.protobuf.Timestamp created_at = 14;
   // Date-time that the post was updated

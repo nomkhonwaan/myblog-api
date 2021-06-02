@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package myblog.proto.blog;
+package myblog.api.proto.blog;
 
 import "proto/blog/post.proto";
 
