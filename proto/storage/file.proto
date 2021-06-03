@@ -8,20 +8,22 @@ import "google/protobuf/timestamp.proto";
 message File {
   // Identifier of the file
   string id = 1;
-  // An uploaded file path
-  string path = 2;
   // An original file name
-  string file_name = 3;
+  string file_name = 2;
   // Valid url string composes with file name and id
-  string slug = 4;
-  // Optional field 1 for using in some storage server
-  string optional_field_1 = 5;
-  // Optional field 2 for using in some storage server
-  string optional_field_2 = 6;
-  // Optional field 3 for using in some storage server
-  string optional_field_3 = 7;
+  string slug = 3;
+  // An uploaded file path
+  string uploaded_file_path = 4;
+  // A media type
+  string mime_type = 5;
+  // Name of the cloud object storage provider (e.g. s3, gcp, azure, etc.)
+  string cloud_object_storage = 6;
+  // Amazon S3 region
+  string s3_region = 7;
+  // Amazon S3 bucket
+  string s3_bucket = 8;
   // Date-time that the file was uploaded
-  google.protobuf.Timestamp uploaded_at = 8;
+  google.protobuf.Timestamp uploaded_at = 9;
   // Date-time that the file was modified
-  google.protobuf.Timestamp modified_at = 9;
+  google.protobuf.Timestamp modified_at = 10;
 }

@@ -8,6 +8,8 @@ message Taxonomy {
   string id = 1;
   // Name of the taxonomy
   string name = 2;
-  // Valid url string composes with name and id.
+  // Valid url string composes with name and id
   string slug = 3;
+  // Term group (e.g. category or tag)
+  string term_group = 4;
 }
