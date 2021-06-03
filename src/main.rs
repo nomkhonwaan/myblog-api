@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse().unwrap();
 
     // TODO: need to get a database name from the connection string instead
-    let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"nomkhonwaan_com").await?;
+    let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"beta_nomkhonwaan_com").await?;
 
     println!("server listening on {}", addr);
 
