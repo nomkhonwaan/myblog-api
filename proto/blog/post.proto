@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package myblog.api.proto.blog;
+
+import "google/protobuf/timestamp.proto";
+import "proto/blog/engagement.proto";
+import "proto/blog/taxonomy.proto";
+import "proto/storage/file.proto";
+
+// Piece of content in the blog platform.
+message Post {
+  // Identifier of the post
+  string id = 1;
+  // Title of the post
+  string title = 2;
+  // Valid url string composes with title and id
+  string slug = 3;
+  // Status of the post which could be...
+  // - Draft
+  // - Published
+  PostStatus status = 4;
+  // Original content of the post in markdown syntax
+  string markdown = 5;
+  // Content of the post in HTML format which will be translated from markdown
+  string html = 6;
+  // Date-time that the post was published
+  google.protobuf.Timestamp published_at = 7;
+  // Identifier of the author
+  string author_id = 8;
+  // List of categories that the post belonging to
+  repeated Taxonomy categories = 9;
+  // List of tags that the post belonging to
+  repeated Taxonomy tags = 10;
+  // A featured image to be shown at the archive page as a cover image
+  myblog.api.proto.storage.File featured_image = 11;
+  // List of attachment (image, video, document, etc.) are belonging to the post
+  repeated myblog.api.proto.storage.File attachments = 12;
+  // Date-time that the post was created
+  google.protobuf.Timestamp created_at = 14;
+  // Date-time that the post was updated
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+enum PostStatus {
+  Draft = 0;
+  Published = 1;
+}
