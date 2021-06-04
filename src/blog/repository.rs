@@ -1,12 +1,11 @@
 use std::time::SystemTime;
 
 use mongodb::{bson::doc, bson::Document, Collection, Cursor, options::FindOptions};
+use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
+use myblog_proto_rust::myblog::proto::storage::File;
 use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
-
-use super::myblog::api::proto::blog::{Post, PostStatus, Taxonomy};
-use super::myblog::api::proto::storage::{File};
 
 /// A post repository definition.
 #[tonic::async_trait]
