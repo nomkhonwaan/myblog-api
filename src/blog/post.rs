@@ -171,24 +171,46 @@ mod tests {
 
     #[test]
     fn init_post_query() {
+        // Given
+
+        // When
         let q: PostQuery = PostQuery::builder();
+
+        // Then
         assert_eq!(0, q.offset);
         assert_eq!(5, q.limit);
     }
 
     #[test]
     fn post_query_with_status() {
-        assert_eq!(Some(PostStatus::Published), PostQuery::default()
-            .with_status(PostStatus::Published).status);
+        // Given
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published);
+
+        // When
+        assert_eq!(PostStatus::Published, q.status.unwrap());
     }
 
     #[test]
     fn post_query_with_offset() {
-        assert_eq!(19, PostQuery::default().with_offset(19).offset);
+        // Given 
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_offset(19);
+
+        // Then
+        assert_eq!(19, q.offset);
     }
 
     #[test]
     fn post_query_with_limit() {
-        assert_eq!(6, PostQuery::default().with_limit(6).limit);
+        // Given
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_limit(6);
+
+        // Then
+        assert_eq!(6, q.limit);
     }
 }
