@@ -162,3 +162,33 @@ impl Unmarshal for Post {
         Ok(post)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use myblog_proto_rust::myblog::proto::blog::PostStatus;
+
+    use crate::blog::post::PostQuery;
+
+    #[test]
+    fn init_post_query() {
+        let q: PostQuery = PostQuery::builder();
+        assert_eq!(0, q.offset);
+        assert_eq!(5, q.limit);
+    }
+
+    #[test]
+    fn post_query_with_status() {
+        assert_eq!(Some(PostStatus::Published), PostQuery::default()
+            .with_status(PostStatus::Published).status);
+    }
+
+    #[test]
+    fn post_query_with_offset() {
+        assert_eq!(19, PostQuery::default().with_offset(19).offset);
+    }
+
+    #[test]
+    fn post_query_with_limit() {
+        assert_eq!(6, PostQuery::default().with_limit(6).limit);
+    }
+}
