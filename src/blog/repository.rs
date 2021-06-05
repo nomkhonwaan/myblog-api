@@ -96,9 +96,14 @@ impl PostRepository for MongoPostRepository {
     }
 }
 
-/// An implementation of Post struct for marshaling, un-marshaling.
-impl Post {
-    pub fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> {
+/// Provide function for un-marshaling data into self struct.
+trait Unmarshal {
+    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
+}
+
+/// An implementation of Post for un-marshaling data into struct.
+impl Unmarshal for Post {
+    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
         let mut post = Post::default();
 
         post.id = document.get_object_id("_id")?.to_hex();
@@ -161,8 +166,8 @@ impl Post {
     }
 }
 
-impl Taxonomy {
-    pub fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> {
+impl Unmarshal for Taxonomy {
+    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
         Ok(Taxonomy {
             id: document.get_object_id("_id")?.to_hex(),
             name: document.get_str("name")?.to_owned(),
