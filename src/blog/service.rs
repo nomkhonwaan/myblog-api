@@ -1,8 +1,8 @@
 use mongodb::Database;
+use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, PostStatus};
+use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
-use super::myblog::api::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, PostStatus};
-use super::myblog::api::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use super::repository::{MongoPostRepository, PostQuery, PostRepository};
 
 /// An implementation of the BlogServiceServer which provides gRPC handler functions.
