@@ -3,7 +3,7 @@ use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPubl
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
-use super::repository::{MongoPostRepository, PostQuery, PostRepository};
+use super::post::{MongoPostRepository, PostQuery, PostRepository};
 
 /// An implementation of the BlogServiceServer which provides gRPC handler functions.
 pub struct MyBlogServiceServer {
