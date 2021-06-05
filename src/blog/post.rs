@@ -7,6 +7,8 @@ use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
 
+use super::Unmarshal;
+
 /// A post repository definition.
 #[tonic::async_trait]
 pub trait PostRepository: Send + Sync + 'static {
@@ -96,11 +98,6 @@ impl PostRepository for MongoPostRepository {
     }
 }
 
-/// Provide function for un-marshaling data into self struct.
-trait Unmarshal {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
-}
-
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
@@ -163,16 +160,5 @@ impl Unmarshal for Post {
         }
 
         Ok(post)
-    }
-}
-
-impl Unmarshal for Taxonomy {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
-        Ok(Taxonomy {
-            id: document.get_object_id("_id")?.to_hex(),
-            name: document.get_str("name")?.to_owned(),
-            slug: document.get_str("slug")?.to_owned(),
-            term_group: document.get_str("term_group")?.to_owned(),
-        })
     }
 }
