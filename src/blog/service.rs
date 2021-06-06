@@ -51,3 +51,36 @@ pub fn new(database: Database) -> BlogServiceServer<MyBlogServiceServer> {
             .build()
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, Post};
+    use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogService;
+    use tonic::Request;
+
+    use crate::blog::post::{PostQuery, PostRepository};
+    use crate::blog::service::MyBlogServiceServer;
+    use tonic::transport::channel::ResponseFuture;
+
+    struct MockPostRepository {}
+
+    #[tonic::async_trait]
+    impl PostRepository for MockPostRepository {
+        async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn list_published_posts() {
+        // Given
+        let post_repository = MockPostRepository {};
+        let myblog_service_server = MyBlogServiceServer { post_repository: Box::from(post_repository) };
+
+        // When
+        let _result =
+            myblog_service_server.list_published_posts(Request::new(ListPublishedPostsRequest { offset: 0, limit: 5 }));
+
+        // Then
+    }
+}
