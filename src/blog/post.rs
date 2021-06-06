@@ -7,6 +7,8 @@ use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
 
+use super::Unmarshal;
+
 /// A post repository definition.
 #[tonic::async_trait]
 pub trait PostRepository: Send + Sync + 'static {
@@ -96,11 +98,6 @@ impl PostRepository for MongoPostRepository {
     }
 }
 
-/// Provide function for un-marshaling data into self struct.
-trait Unmarshal {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
-}
-
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
@@ -166,13 +163,54 @@ impl Unmarshal for Post {
     }
 }
 
-impl Unmarshal for Taxonomy {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
-        Ok(Taxonomy {
-            id: document.get_object_id("_id")?.to_hex(),
-            name: document.get_str("name")?.to_owned(),
-            slug: document.get_str("slug")?.to_owned(),
-            term_group: document.get_str("term_group")?.to_owned(),
-        })
+#[cfg(test)]
+mod tests {
+    use myblog_proto_rust::myblog::proto::blog::PostStatus;
+
+    use crate::blog::post::PostQuery;
+
+    #[test]
+    fn init_post_query() {
+        // Given
+
+        // When
+        let q: PostQuery = PostQuery::builder();
+
+        // Then
+        assert_eq!(0, q.offset);
+        assert_eq!(5, q.limit);
+    }
+
+    #[test]
+    fn post_query_with_status() {
+        // Given
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published);
+
+        // When
+        assert_eq!(PostStatus::Published, q.status.unwrap());
+    }
+
+    #[test]
+    fn post_query_with_offset() {
+        // Given 
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_offset(19);
+
+        // Then
+        assert_eq!(19, q.offset);
+    }
+
+    #[test]
+    fn post_query_with_limit() {
+        // Given
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_limit(6);
+
+        // Then
+        assert_eq!(6, q.limit);
     }
 }
