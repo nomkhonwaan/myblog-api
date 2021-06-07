@@ -7,12 +7,12 @@ use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
 
-use super::Unmarshal;
+use super::{Result, Unmarshal};
 
 /// A post repository definition.
 #[tonic::async_trait]
 pub trait PostRepository: Send + Sync + 'static {
-    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>>;
+    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>>;
 }
 
 /// A post query builder.
@@ -70,7 +70,7 @@ impl MongoPostRepository {
 
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
-    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
+    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>> {
         let mut filter = doc! {};
         let mut find_options = FindOptions::builder()
             .sort(doc! {"created_at": 1})
@@ -87,7 +87,7 @@ impl PostRepository for MongoPostRepository {
             }
         }
 
-        let mut cursor: Cursor = self.collection.find(Some(filter), find_options).await?;
+        let mut cursor: Cursor = self.collection.find(filter, find_options).await?;
         let mut result: Vec<Post> = Vec::new();
 
         while let Some(document) = cursor.next().await {
@@ -100,7 +100,7 @@ impl PostRepository for MongoPostRepository {
 
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
+    fn unmarshal_bson(document: &Document) -> Result<Self> where Self: Sized {
         let mut post = Post::default();
 
         post.id = document.get_object_id("_id")?.to_hex();
