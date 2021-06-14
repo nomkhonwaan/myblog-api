@@ -33,7 +33,7 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
     }
 
     async fn find_all_by_ids(&self, ids: &Vec<&str>) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
-        let object_ids: std::result::Result<Vec<_>, _> = ids.iter().map(|id| { ObjectId::with_string(id) }).collect();
+        let object_ids: Result<Vec<_>, _> = ids.iter().map(|id| { ObjectId::with_string(id) }).collect();
         let filter = doc! {"_id": {"$in": object_ids?}};
 
         let mut cursor: Cursor = self.collection.find(filter, None).await?;
