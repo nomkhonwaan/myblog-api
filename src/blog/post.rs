@@ -35,25 +35,19 @@ impl PostQuery {
         }
     }
 
-    pub fn with_status(self, status: PostStatus) -> Self {
-        PostQuery {
-            status: Some(status),
-            ..self
-        }
+    pub fn with_status(mut self, status: PostStatus) -> Self {
+        self.status = Some(status);
+        self
     }
 
-    pub fn with_offset(self, offset: u32) -> Self {
-        PostQuery {
-            offset,
-            ..self
-        }
+    pub fn with_offset(mut self, offset: u32) -> Self {
+        self.offset = offset;
+        self
     }
 
-    pub fn with_limit(self, limit: u32) -> Self {
-        PostQuery {
-            limit,
-            ..self
-        }
+    pub fn with_limit(mut self, limit: u32) -> Self {
+        self.limit = limit;
+        self
     }
 }
 
