@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::Document, Collection, Cursor, options::FindOptions};
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor, options::FindOptions};
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
 use prost_types::Timestamp;
@@ -95,65 +95,64 @@ impl PostRepository for MongoPostRepository {
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
-        let mut post = Post::default();
-
-        post.id = document.get_object_id("_id")?.to_hex();
-
-        if let Ok(title) = document.get_str("title") {
-            post.title = title.to_owned();
-        }
-        if let Ok(slug) = document.get_str("slug") {
-            post.slug = slug.to_owned();
-        }
-        if let Ok(status) = document.get_i32("status") {
-            post.status = status.to_owned();
-        }
-        if let Ok(markdown) = document.get_str("markdown") {
-            post.markdown = markdown.to_owned();
-        }
-        if let Ok(html) = document.get_str("html") {
-            post.html = html.to_owned();
-        }
-        if let Ok(published_at) = document.get_datetime("published_at") {
-            post.published_at = Some(Timestamp::from(SystemTime::from(published_at.to_owned())));
-        }
-        if let Ok(author_id) = document.get_object_id("author_id") {
-            post.author_id = author_id.to_hex();
-        }
-        if let Ok(categories) = document.get_array("categories") {
-            for category in categories.into_iter() {
-                let mut taxonomy = Taxonomy::default();
-                if let Some(id) = category.as_object_id() { taxonomy.id = id.to_hex(); }
-                post.categories.push(taxonomy);
-            }
-        }
-        if let Ok(tags) = document.get_array("tags") {
-            for tag in tags.into_iter() {
-                let mut taxonomy = Taxonomy::default();
-                if let Some(id) = tag.as_object_id() { taxonomy.id = id.to_hex(); }
-                post.tags.push(taxonomy);
-            }
-        }
-        if let Ok(featured_image) = document.get_object_id("featured_image") {
-            let mut file = File::default();
-            file.id = featured_image.to_hex();
-            post.featured_image = Some(file);
-        }
-        if let Ok(attachments) = document.get_array("attachments") {
-            for attachment in attachments.into_iter() {
-                let mut file = File::default();
-                if let Some(id) = attachment.as_object_id() { file.id = id.to_hex(); }
-                post.attachments.push(file);
-            }
-        }
-        if let Ok(created_at) = document.get_datetime("created_at") {
-            post.created_at = Some(Timestamp::from(SystemTime::from(created_at.to_owned())));
-        }
-        if let Ok(updated_at) = document.get_datetime("updated_at") {
-            post.updated_at = Some(Timestamp::from(SystemTime::from(updated_at.to_owned())));
-        }
-
-        Ok(post)
+        Ok(Post {
+            id: document.get_object_id("_id")?.to_hex(),
+            title: document.get_str("title")?.to_owned(),
+            slug: document.get_str("slug")?.to_owned(),
+            status: document.get_i32("status")?.to_owned(),
+            markdown: document.get_str("markdown")?.to_owned(),
+            html: document.get_str("html")?.to_owned(),
+            published_at: Some(document.get_datetime("published_at")
+                .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
+            author_id: document.get_object_id("author_id")?.to_hex(),
+            categories: document.get_array("categories")
+                .and_then(|categories| {
+                    Ok(categories
+                        .into_iter()
+                        .map(|id| {
+                            Taxonomy {
+                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+                                ..Default::default()
+                            }
+                        })
+                        .collect())
+                })?,
+            tags: document.get_array("tags")
+                .and_then(|tags| {
+                    Ok(tags
+                        .into_iter()
+                        .map(|id| {
+                            Taxonomy {
+                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+                                ..Default::default()
+                            }
+                        })
+                        .collect())
+                })?,
+            featured_image: Some(document.get_object_id("featured_image")
+                .and_then(|featured_image| {
+                    Ok(File {
+                        id: featured_image.to_hex(),
+                        ..Default::default()
+                    })
+                })?),
+            attachments: document.get_array("attachments")
+                .and_then(|attachments| {
+                    Ok(attachments
+                        .into_iter()
+                        .map(|id| {
+                            File {
+                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+                                ..Default::default()
+                            }
+                        })
+                        .collect())
+                })?,
+            created_at: Some(document.get_datetime("created_at")
+                .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
+            updated_at: Some(document.get_datetime("updated_at")
+                .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
+        })
     }
 }
 
