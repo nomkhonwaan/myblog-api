@@ -65,23 +65,29 @@ impl MongoPostRepository {
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
-        let mut filter = doc! {};
-        let mut find_options = FindOptions::builder()
-            .sort(doc! {"created_at": 1})
-            .skip(q.offset as i64)
-            .limit(q.limit as i64)
-            .build();
+        let mut pipeline: Vec<Document> = vec![
+            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
+            doc! {"$lookup": {"from": "files", "localField": "featured_image", "foreignField": "_id", "as": "featured_image"}},
+            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}}
+        ];
 
         if let Some(status) = q.status {
-            filter.insert("status", status as i32);
+            pipeline.push(doc! {"$match": {"status": status as i32}});
 
             // Will sort by `published_at` descending if status is `Published`
             if status == PostStatus::Published {
-                find_options.sort = Some(doc! { "published_at": -1 });
+                pipeline.push(doc! {"$sort": {"publishedAt": -1}})
+            } else {
+                pipeline.push(doc! {"$sort": {"createdAt": -1}})
             }
         }
 
-        let mut cursor: Cursor = self.collection.find(filter, find_options).await?;
+        pipeline.push(doc! {"$skip": q.offset as i64});
+        pipeline.push(doc! {"$limit": q.limit as i64});
+
+        let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
         let mut result: Vec<Post> = Vec::new();
 
         while let Some(document) = cursor.next().await {
@@ -94,7 +100,7 @@ impl PostRepository for MongoPostRepository {
 
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
+    fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
         Ok(Post {
             id: document.get_object_id("_id")?.to_hex(),
             title: document.get_str("title")?.to_owned(),
@@ -102,55 +108,76 @@ impl Unmarshal for Post {
             status: document.get_i32("status")?.to_owned(),
             markdown: document.get_str("markdown")?.to_owned(),
             html: document.get_str("html")?.to_owned(),
-            published_at: Some(document.get_datetime("published_at")
+            published_at: Some(document.get_datetime("publishedAt")
                 .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
-            author_id: document.get_object_id("author_id")?.to_hex(),
+            author: None,
             categories: document.get_array("categories")
                 .and_then(|categories| {
-                    Ok(categories
+                    categories
                         .into_iter()
-                        .map(|id| {
-                            Taxonomy {
-                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-                                ..Default::default()
-                            }
-                        })
-                        .collect())
+                        .map(|category| category.as_document())
+                        .filter_map(|category| category)
+                        .map(|category| Taxonomy::unmarshal_bson(category))
+                        .collect::<Result<Vec<Taxonomy>, _>>()
                 })?,
             tags: document.get_array("tags")
                 .and_then(|tags| {
-                    Ok(tags
+                    tags
                         .into_iter()
-                        .map(|id| {
-                            Taxonomy {
-                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-                                ..Default::default()
-                            }
-                        })
-                        .collect())
+                        .map(|tag| tag.as_document())
+                        .filter_map(|tag| tag)
+                        .map(|tag| Taxonomy::unmarshal_bson(tag))
+                        .collect::<Result<Vec<Taxonomy>, _>>()
                 })?,
-            featured_image: Some(document.get_object_id("featured_image")
-                .and_then(|featured_image| {
-                    Ok(File {
-                        id: featured_image.to_hex(),
-                        ..Default::default()
-                    })
-                })?),
-            attachments: document.get_array("attachments")
-                .and_then(|attachments| {
-                    Ok(attachments
-                        .into_iter()
-                        .map(|id| {
-                            File {
-                                id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-                                ..Default::default()
-                            }
-                        })
-                        .collect())
-                })?,
-            created_at: Some(document.get_datetime("created_at")
+            // author: document.get_object_id("author_id")?.to_hex(),
+            // categories: document.get_array("categories")
+            //     .and_then(|categories| {
+            //         Ok(categories
+            //             .into_iter()
+            //             .map(|id| {
+            //                 Taxonomy {
+            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+            //                     ..Default::default()
+            //                 }
+            //             })
+            //             .collect())
+            //     })?,
+            // tags: document.get_array("tags")
+            //     .and_then(|tags| {
+            //         Ok(tags
+            //             .into_iter()
+            //             .map(|id| {
+            //                 Taxonomy {
+            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+            //                     ..Default::default()
+            //                 }
+            //             })
+            //             .collect())
+            //     })?,
+            featured_image: None,
+            attachments: vec![],
+            // featured_image: Some(document.get_object_id("featured_image")
+            //     .and_then(|featured_image| {
+            //         Ok(File {
+            //             id: featured_image.to_hex(),
+            //             ..Default::default()
+            //         })
+            //     })?),
+            // attachments: document.get_array("attachments")
+            //     .and_then(|attachments| {
+            //         Ok(attachments
+            //             .into_iter()
+            //             .map(|id| {
+            //                 File {
+            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
+            //                     ..Default::default()
+            //                 }
+            //             })
+            //             .collect())
+            //     })?,
+            created_at: Some(document.get_datetime("createdAt")
                 .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
-            updated_at: Some(document.get_datetime("updated_at")
+            updated_at: Some(document.get_datetime("updatedAt")
                 .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
         })
     }
