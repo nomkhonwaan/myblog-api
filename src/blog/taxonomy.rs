@@ -48,12 +48,12 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
 }
 
 impl Unmarshal for Taxonomy {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
+    fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
         Ok(Taxonomy {
             id: document.get_object_id("_id")?.to_hex(),
             name: document.get_str("name")?.to_owned(),
             slug: document.get_str("slug")?.to_owned(),
-            term_group: document.get_str("term_group")?.to_owned(),
+            r#type: document.get_str("type")?.to_owned(),
         })
     }
 }
