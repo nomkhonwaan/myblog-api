@@ -5,6 +5,6 @@ pub mod post;
 pub mod taxonomy;
 
 trait Unmarshal {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
+    fn unmarshal_bson(document: &Document) -> Result<Self,mongodb::bson::document::ValueAccessError> where Self: Sized;
 }
 

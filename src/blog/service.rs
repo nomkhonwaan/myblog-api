@@ -1,5 +1,5 @@
 use mongodb::Database;
-use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, PostStatus};
+use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, Post, PostStatus};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
@@ -25,9 +25,8 @@ impl BlogService for MyBlogServiceServer {
         &self,
         request: Request<ListPublishedPostsRequest>,
     ) -> Result<Response<ListPublishedPostsResponse>, Status> {
-        let r = request.into_inner();
-        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published)
-            .with_offset(r.offset).with_limit(r.limit);
+        let r: ListPublishedPostsRequest = request.into_inner();
+        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_offset(r.offset).with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListPublishedPostsResponse { posts })),
