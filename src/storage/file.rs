@@ -20,8 +20,10 @@ impl Unmarshal for File {
                 bucket: document.get_str("bucket")?.to_owned(),
                 uploaded_at: Some(document.get_datetime("uploadedAt")
                     .and_then(|uploaded_at| Ok(Timestamp::from(SystemTime::from(uploaded_at.to_owned()))))?),
-                modified_at: Some(document.get_datetime("modifiedAt")
-                    .and_then(|modified_at| Ok(Timestamp::from(SystemTime::from(modified_at.to_owned()))))?),
+                modified_at: match document.get_datetime("modifiedAt") {
+                    Ok(modified_at) => Some(Timestamp::from(SystemTime::from(modified_at.to_owned()))),
+                    _ => None,
+                },
             }
         )
     }
