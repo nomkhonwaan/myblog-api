@@ -68,9 +68,11 @@ impl PostRepository for MongoPostRepository {
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
         let mut pipeline: Vec<Document> = vec![
             doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$unwind": {"path": "$author"}},
             doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
             doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
-            doc! {"$lookup": {"from": "files", "localField": "featured_image", "foreignField": "_id", "as": "featured_image"}},
+            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
+            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
             doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}}
         ];
 
@@ -102,6 +104,8 @@ impl PostRepository for MongoPostRepository {
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
+        println!("{:?}", document);
+
         Ok(Post {
             id: document.get_object_id("_id")?.to_hex(),
             title: document.get_str("title")?.to_owned(),
@@ -131,27 +135,19 @@ impl Unmarshal for Post {
                         .map(|tag| Taxonomy::unmarshal_bson(tag))
                         .collect::<Result<Vec<Taxonomy>, _>>()
                 })?,
-            featured_image: None,
-            attachments: vec![],
-            // featured_image: Some(document.get_object_id("featured_image")
-            //     .and_then(|featured_image| {
-            //         Ok(File {
-            //             id: featured_image.to_hex(),
-            //             ..Default::default()
-            //         })
-            //     })?),
-            // attachments: document.get_array("attachments")
-            //     .and_then(|attachments| {
-            //         Ok(attachments
-            //             .into_iter()
-            //             .map(|id| {
-            //                 File {
-            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-            //                     ..Default::default()
-            //                 }
-            //             })
-            //             .collect())
-            //     })?,
+            featured_image: match document.get_document("featuredImage") {
+                Ok(featured_image) => Some(File::unmarshal_bson(featured_image)?),
+                _ => None,
+            },
+            attachments: document.get_array("attachments")
+                .and_then(|attachments| {
+                    attachments
+                        .into_iter()
+                        .map(|attachment| attachment.as_document())
+                        .filter_map(|attachment| attachment)
+                        .map(|attachment| File::unmarshal_bson(attachment))
+                        .collect::<Result<Vec<File>, _>>()
+                })?,
             created_at: Some(document.get_datetime("createdAt")
                 .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
             updated_at: Some(document.get_datetime("updatedAt")

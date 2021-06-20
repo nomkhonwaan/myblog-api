@@ -1,5 +1,5 @@
 use mongodb::Database;
-use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, Post, PostStatus};
+use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, PostStatus};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
