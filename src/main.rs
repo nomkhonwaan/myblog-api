@@ -2,7 +2,10 @@ use clap::{App, Arg};
 use mongodb::{bson::doc, Client, Database, options::ClientOptions};
 use tonic::transport::Server;
 
+mod auth;
 mod blog;
+mod encoding;
+mod storage;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,13 +1,14 @@
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::Document, Collection, Cursor, options::FindOptions};
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor, options::FindOptions};
+use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
 use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
 
-use super::Unmarshal;
+use crate::encoding::bson::Unmarshal;
 
 /// A post repository definition.
 #[tonic::async_trait]
@@ -35,25 +36,19 @@ impl PostQuery {
         }
     }
 
-    pub fn with_status(self, status: PostStatus) -> Self {
-        PostQuery {
-            status: Some(status),
-            ..self
-        }
+    pub fn with_status(mut self, status: PostStatus) -> Self {
+        self.status = Some(status);
+        self
     }
 
-    pub fn with_offset(self, offset: u32) -> Self {
-        PostQuery {
-            offset,
-            ..self
-        }
+    pub fn with_offset(mut self, offset: u32) -> Self {
+        self.offset = offset;
+        self
     }
 
-    pub fn with_limit(self, limit: u32) -> Self {
-        PostQuery {
-            limit,
-            ..self
-        }
+    pub fn with_limit(mut self, limit: u32) -> Self {
+        self.limit = limit;
+        self
     }
 }
 
@@ -71,23 +66,31 @@ impl MongoPostRepository {
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
-        let mut filter = doc! {};
-        let mut find_options = FindOptions::builder()
-            .sort(doc! {"created_at": 1})
-            .skip(q.offset as i64)
-            .limit(q.limit as i64)
-            .build();
+        let mut pipeline: Vec<Document> = vec![
+            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$unwind": {"path": "$author"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
+            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
+            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
+            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}}
+        ];
 
         if let Some(status) = q.status {
-            filter.insert("status", status as i32);
+            pipeline.push(doc! {"$match": {"status": status as i32}});
 
             // Will sort by `published_at` descending if status is `Published`
             if status == PostStatus::Published {
-                find_options.sort = Some(doc! { "published_at": -1 });
+                pipeline.push(doc! {"$sort": {"publishedAt": -1}})
+            } else {
+                pipeline.push(doc! {"$sort": {"createdAt": -1}})
             }
         }
 
-        let mut cursor: Cursor = self.collection.find(Some(filter), find_options).await?;
+        pipeline.push(doc! {"$skip": q.offset as i64});
+        pipeline.push(doc! {"$limit": q.limit as i64});
+
+        let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
         let mut result: Vec<Post> = Vec::new();
 
         while let Some(document) = cursor.next().await {
@@ -100,66 +103,54 @@ impl PostRepository for MongoPostRepository {
 
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
-    fn unmarshal_bson(document: &Document) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized {
-        let mut post = Post::default();
-
-        post.id = document.get_object_id("_id")?.to_hex();
-
-        if let Ok(title) = document.get_str("title") {
-            post.title = title.to_owned();
-        }
-        if let Ok(slug) = document.get_str("slug") {
-            post.slug = slug.to_owned();
-        }
-        if let Ok(status) = document.get_i32("status") {
-            post.status = status.to_owned();
-        }
-        if let Ok(markdown) = document.get_str("markdown") {
-            post.markdown = markdown.to_owned();
-        }
-        if let Ok(html) = document.get_str("html") {
-            post.html = html.to_owned();
-        }
-        if let Ok(published_at) = document.get_datetime("published_at") {
-            post.published_at = Some(Timestamp::from(SystemTime::from(published_at.to_owned())));
-        }
-        if let Ok(author_id) = document.get_object_id("author_id") {
-            post.author_id = author_id.to_hex();
-        }
-        if let Ok(categories) = document.get_array("categories") {
-            for category in categories.into_iter() {
-                let mut taxonomy = Taxonomy::default();
-                if let Some(id) = category.as_object_id() { taxonomy.id = id.to_hex(); }
-                post.categories.push(taxonomy);
-            }
-        }
-        if let Ok(tags) = document.get_array("tags") {
-            for tag in tags.into_iter() {
-                let mut taxonomy = Taxonomy::default();
-                if let Some(id) = tag.as_object_id() { taxonomy.id = id.to_hex(); }
-                post.tags.push(taxonomy);
-            }
-        }
-        if let Ok(featured_image) = document.get_object_id("featured_image") {
-            let mut file = File::default();
-            file.id = featured_image.to_hex();
-            post.featured_image = Some(file);
-        }
-        if let Ok(attachments) = document.get_array("attachments") {
-            for attachment in attachments.into_iter() {
-                let mut file = File::default();
-                if let Some(id) = attachment.as_object_id() { file.id = id.to_hex(); }
-                post.attachments.push(file);
-            }
-        }
-        if let Ok(created_at) = document.get_datetime("created_at") {
-            post.created_at = Some(Timestamp::from(SystemTime::from(created_at.to_owned())));
-        }
-        if let Ok(updated_at) = document.get_datetime("updated_at") {
-            post.updated_at = Some(Timestamp::from(SystemTime::from(updated_at.to_owned())));
-        }
-
-        Ok(post)
+    fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
+        Ok(Post {
+            id: document.get_object_id("_id")?.to_hex(),
+            title: document.get_str("title")?.to_owned(),
+            slug: document.get_str("slug")?.to_owned(),
+            status: document.get_i32("status")?.to_owned(),
+            markdown: document.get_str("markdown")?.to_owned(),
+            html: document.get_str("html")?.to_owned(),
+            published_at: Some(document.get_datetime("publishedAt")
+                .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
+            author: Some(document.get_document("author")
+                .and_then(|author| User::unmarshal_bson(author))?),
+            categories: document.get_array("categories")
+                .and_then(|categories| {
+                    categories
+                        .into_iter()
+                        .map(|category| category.as_document())
+                        .filter_map(|category| category)
+                        .map(|category| Taxonomy::unmarshal_bson(category))
+                        .collect::<Result<Vec<Taxonomy>, _>>()
+                })?,
+            tags: document.get_array("tags")
+                .and_then(|tags| {
+                    tags
+                        .into_iter()
+                        .map(|tag| tag.as_document())
+                        .filter_map(|tag| tag)
+                        .map(|tag| Taxonomy::unmarshal_bson(tag))
+                        .collect::<Result<Vec<Taxonomy>, _>>()
+                })?,
+            featured_image: match document.get_document("featuredImage") {
+                Ok(featured_image) => Some(File::unmarshal_bson(featured_image)?),
+                _ => None,
+            },
+            attachments: document.get_array("attachments")
+                .and_then(|attachments| {
+                    attachments
+                        .into_iter()
+                        .map(|attachment| attachment.as_document())
+                        .filter_map(|attachment| attachment)
+                        .map(|attachment| File::unmarshal_bson(attachment))
+                        .collect::<Result<Vec<File>, _>>()
+                })?,
+            created_at: Some(document.get_datetime("createdAt")
+                .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
+            updated_at: Some(document.get_datetime("updatedAt")
+                .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
+        })
     }
 }
 

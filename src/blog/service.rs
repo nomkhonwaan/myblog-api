@@ -3,11 +3,20 @@ use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPubl
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
+use crate::blog::taxonomy::{MongoTaxonomyRepository, TaxonomyRepository};
+
 use super::post::{MongoPostRepository, PostQuery, PostRepository};
 
 /// An implementation of the BlogServiceServer which provides gRPC handler functions.
 pub struct MyBlogServiceServer {
     post_repository: Box<dyn PostRepository>,
+    taxonomy_repository: Box<dyn TaxonomyRepository>,
+}
+
+impl MyBlogServiceServer {
+    pub fn builder() -> MyBlogServiceServerBuilder {
+        MyBlogServiceServerBuilder::default()
+    }
 }
 
 #[tonic::async_trait]
@@ -16,7 +25,7 @@ impl BlogService for MyBlogServiceServer {
         &self,
         request: Request<ListPublishedPostsRequest>,
     ) -> Result<Response<ListPublishedPostsResponse>, Status> {
-        let r = request.into_inner();
+        let r: ListPublishedPostsRequest = request.into_inner();
         let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_offset(r.offset).with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
@@ -27,27 +36,35 @@ impl BlogService for MyBlogServiceServer {
 }
 
 #[derive(Default)]
-struct MyBlogServiceServerBuilder {
+pub struct MyBlogServiceServerBuilder {
     post_repository: Option<Box<dyn PostRepository>>,
+    taxonomy_repository: Option<Box<dyn TaxonomyRepository>>,
 }
 
 impl MyBlogServiceServerBuilder {
-    pub fn with_post_repository(mut self, post_repository: Box<dyn PostRepository>) -> Self {
-        self.post_repository = Some(post_repository);
+    pub fn with_post_repository(mut self, repository: Box<dyn PostRepository>) -> Self {
+        self.post_repository = Some(repository);
+        self
+    }
+
+    pub fn with_taxonomy_repository(mut self, repository: Box<dyn TaxonomyRepository>) -> Self {
+        self.taxonomy_repository = Some(repository);
         self
     }
 
     pub fn build(self) -> MyBlogServiceServer {
         MyBlogServiceServer {
             post_repository: self.post_repository.unwrap(),
+            taxonomy_repository: self.taxonomy_repository.unwrap(),
         }
     }
 }
 
 pub fn new(database: Database) -> BlogServiceServer<MyBlogServiceServer> {
     BlogServiceServer::new(
-        MyBlogServiceServerBuilder::default()
+        MyBlogServiceServer::builder()
             .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
+            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
             .build()
     )
 }
