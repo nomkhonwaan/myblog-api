@@ -104,8 +104,6 @@ impl PostRepository for MongoPostRepository {
 /// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
-        println!("{:?}", document);
-
         Ok(Post {
             id: document.get_object_id("_id")?.to_hex(),
             title: document.get_str("title")?.to_owned(),
