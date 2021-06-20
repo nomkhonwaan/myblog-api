@@ -1,13 +1,14 @@
 use std::time::SystemTime;
 
 use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor, options::FindOptions};
+use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
 use prost_types::Timestamp;
 use tokio::stream::StreamExt;
 use tonic;
 
-use super::Unmarshal;
+use crate::encoding::bson::Unmarshal;
 
 /// A post repository definition.
 #[tonic::async_trait]
@@ -110,7 +111,8 @@ impl Unmarshal for Post {
             html: document.get_str("html")?.to_owned(),
             published_at: Some(document.get_datetime("publishedAt")
                 .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
-            author: None,
+            author: Some(document.get_document("author")
+                .and_then(|author| User::unmarshal_bson(author))?),
             categories: document.get_array("categories")
                 .and_then(|categories| {
                     categories
@@ -129,31 +131,6 @@ impl Unmarshal for Post {
                         .map(|tag| Taxonomy::unmarshal_bson(tag))
                         .collect::<Result<Vec<Taxonomy>, _>>()
                 })?,
-            // author: document.get_object_id("author_id")?.to_hex(),
-            // categories: document.get_array("categories")
-            //     .and_then(|categories| {
-            //         Ok(categories
-            //             .into_iter()
-            //             .map(|id| {
-            //                 Taxonomy {
-            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-            //                     ..Default::default()
-            //                 }
-            //             })
-            //             .collect())
-            //     })?,
-            // tags: document.get_array("tags")
-            //     .and_then(|tags| {
-            //         Ok(tags
-            //             .into_iter()
-            //             .map(|id| {
-            //                 Taxonomy {
-            //                     id: id.as_object_id().or(Some(&ObjectId::new())).unwrap().to_hex(),
-            //                     ..Default::default()
-            //                 }
-            //             })
-            //             .collect())
-            //     })?,
             featured_image: None,
             attachments: vec![],
             // featured_image: Some(document.get_object_id("featured_image")

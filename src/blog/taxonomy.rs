@@ -2,7 +2,7 @@ use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor
 use myblog_proto_rust::myblog::proto::blog::Taxonomy;
 use tokio::stream::StreamExt;
 
-use super::Unmarshal;
+use crate::encoding::bson::Unmarshal;
 
 #[tonic::async_trait]
 pub trait TaxonomyRepository: Send + Sync + 'static {
