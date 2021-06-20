@@ -111,8 +111,10 @@ impl Unmarshal for Post {
             status: document.get_i32("status")?.to_owned(),
             markdown: document.get_str("markdown")?.to_owned(),
             html: document.get_str("html")?.to_owned(),
-            published_at: Some(document.get_datetime("publishedAt")
-                .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
+            published_at: match document.get_datetime("publishedAt") {
+                Ok(published_at) => Some(Timestamp::from(SystemTime::from(published_at.to_owned()))),
+                _ => None,
+            },
             author: Some(document.get_document("author")
                 .and_then(|author| User::unmarshal_bson(author))?),
             categories: document.get_array("categories")
@@ -148,8 +150,10 @@ impl Unmarshal for Post {
                 })?,
             created_at: Some(document.get_datetime("createdAt")
                 .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
-            updated_at: Some(document.get_datetime("updatedAt")
-                .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
+            updated_at: match document.get_datetime("updatedAt") {
+                Ok(updated_at) => Some(Timestamp::from(SystemTime::from(updated_at.to_owned()))),
+                _ => None,
+            },
         })
     }
 }
