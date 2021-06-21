@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor, options::FindOptions};
+use mongodb::{bson::doc, bson::Document, Collection, Cursor};
 use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
@@ -91,10 +91,10 @@ impl PostRepository for MongoPostRepository {
         pipeline.push(doc! {"$limit": q.limit as i64});
 
         let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
-        let mut result: Vec<Post> = Vec::new();
+        let mut result: Vec<Post> = vec![];
 
-        while let Some(document) = cursor.next().await {
-            result.push(Post::unmarshal_bson(&document?)?);
+        while let Some(document) = cursor.try_next().await? {
+            result.push(Post::unmarshal_bson(&document)?);
         }
 
         Ok(result)
