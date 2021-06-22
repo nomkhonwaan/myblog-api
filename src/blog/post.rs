@@ -18,16 +18,17 @@ pub trait PostRepository: Send + Sync + 'static {
 
 /// A post query builder.
 #[derive(Default)]
-pub struct PostQuery {
+pub struct PostQuery<'query> {
     /* Filters */
     status: Option<PostStatus>,
+    category: Option<&'query Taxonomy>,
 
     /* Pagination Options */
     offset: u32,
     limit: u32,
 }
 
-impl PostQuery {
+impl<'query> PostQuery<'query> {
     pub fn builder() -> Self {
         PostQuery {
             offset: 0,
@@ -38,6 +39,11 @@ impl PostQuery {
 
     pub fn with_status(mut self, status: PostStatus) -> Self {
         self.status = Some(status);
+        self
+    }
+
+    pub fn with_category(mut self, category: Option<&'query Taxonomy>) -> Self {
+        self.category = category;
         self
     }
 
@@ -87,6 +93,10 @@ impl PostRepository for MongoPostRepository {
             }
         }
 
+        if let Some(category) = q.category {
+            pipeline.push(doc! {"$match": category.id});
+        }
+
         pipeline.push(doc! {"$skip": q.offset as i64});
         pipeline.push(doc! {"$limit": q.limit as i64});
 
@@ -101,7 +111,6 @@ impl PostRepository for MongoPostRepository {
     }
 }
 
-/// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
         Ok(Post {
