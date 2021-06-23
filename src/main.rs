@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .version("3.0.0")
         .arg(
             Arg::new("listen-address")
-                .default_value("[::1]:9111")
+                .default_value("[::1]:8080")
                 .required(true),
         )
         .arg(

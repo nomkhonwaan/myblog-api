@@ -1,6 +1,7 @@
+use std::str::FromStr;
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor, options::FindOptions};
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
 use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
@@ -21,6 +22,7 @@ pub trait PostRepository: Send + Sync + 'static {
 pub struct PostQuery {
     /* Filters */
     status: Option<PostStatus>,
+    category: Option<Taxonomy>,
 
     /* Pagination Options */
     offset: u32,
@@ -38,6 +40,11 @@ impl PostQuery {
 
     pub fn with_status(mut self, status: PostStatus) -> Self {
         self.status = Some(status);
+        self
+    }
+
+    pub fn with_category(mut self, category: Option<Taxonomy>) -> Self {
+        self.category = category;
         self
     }
 
@@ -66,15 +73,7 @@ impl MongoPostRepository {
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
-        let mut pipeline: Vec<Document> = vec![
-            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
-            doc! {"$unwind": {"path": "$author"}},
-            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
-            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
-            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
-            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
-            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}}
-        ];
+        let mut pipeline: Vec<Document> = vec![];
 
         if let Some(status) = q.status {
             pipeline.push(doc! {"$match": {"status": status as i32}});
@@ -87,21 +86,33 @@ impl PostRepository for MongoPostRepository {
             }
         }
 
-        pipeline.push(doc! {"$skip": q.offset as i64});
-        pipeline.push(doc! {"$limit": q.limit as i64});
+        if let Some(category) = q.category {
+            pipeline.push(doc! {"$match": {"categories": ObjectId::from_str(category.id.as_str())?}});
+        }
+
+        pipeline.append(&mut vec![
+            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$unwind": {"path": "$author"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
+            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
+            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
+            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}},
+            doc! {"$skip": q.offset as i64},
+            doc! {"$limit": q.limit as i64},
+        ]);
 
         let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
-        let mut result: Vec<Post> = Vec::new();
+        let mut result: Vec<Post> = vec![];
 
-        while let Some(document) = cursor.next().await {
-            result.push(Post::unmarshal_bson(&document?)?);
+        while let Some(document) = cursor.try_next().await? {
+            result.push(Post::unmarshal_bson(&document)?);
         }
 
         Ok(result)
     }
 }
 
-/// An implementation of Post for un-marshaling data into struct.
 impl Unmarshal for Post {
     fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
         Ok(Post {
@@ -111,8 +122,10 @@ impl Unmarshal for Post {
             status: document.get_i32("status")?.to_owned(),
             markdown: document.get_str("markdown")?.to_owned(),
             html: document.get_str("html")?.to_owned(),
-            published_at: Some(document.get_datetime("publishedAt")
-                .and_then(|published_at| Ok(Timestamp::from(SystemTime::from(published_at.to_owned()))))?),
+            published_at: match document.get_datetime("publishedAt") {
+                Ok(published_at) => Some(Timestamp::from(SystemTime::from(published_at.to_owned()))),
+                _ => None,
+            },
             author: Some(document.get_document("author")
                 .and_then(|author| User::unmarshal_bson(author))?),
             categories: document.get_array("categories")
@@ -148,8 +161,10 @@ impl Unmarshal for Post {
                 })?,
             created_at: Some(document.get_datetime("createdAt")
                 .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
-            updated_at: Some(document.get_datetime("updatedAt")
-                .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
+            updated_at: match document.get_datetime("updatedAt") {
+                Ok(updated_at) => Some(Timestamp::from(SystemTime::from(updated_at.to_owned()))),
+                _ => None,
+            },
         })
     }
 }

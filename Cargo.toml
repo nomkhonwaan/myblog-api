@@ -12,7 +12,7 @@ path = "src/main.rs"
 chrono = "0.4"
 clap = "3.0.0-beta.2"
 mongodb = "1.2.1"
-myblog-proto-rust = "0.0.4"
+myblog-proto-rust = { path = "../myblog-proto-rust" }
 prost = "0.6.1"
 prost-types = "0.6.1"
 tokio = { version = "0.2", features = ["macros"] }

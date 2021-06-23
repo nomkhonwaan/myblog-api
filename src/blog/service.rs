@@ -1,9 +1,9 @@
 use mongodb::Database;
-use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, ListPublishedPostsResponse, PostStatus};
+use myblog_proto_rust::myblog::proto::blog::{ListCategoriesResponse, ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use tonic::{Request, Response, Status};
 
-use crate::blog::taxonomy::{MongoTaxonomyRepository, TaxonomyRepository};
+use crate::blog::taxonomy::{MongoTaxonomyRepository, TaxonomyQuery, TaxonomyRepository};
 
 use super::post::{MongoPostRepository, PostQuery, PostRepository};
 
@@ -21,6 +21,13 @@ impl MyBlogServiceServer {
 
 #[tonic::async_trait]
 impl BlogService for MyBlogServiceServer {
+    async fn list_categories(&self, _: Request<()>) -> Result<Response<ListCategoriesResponse>, Status> {
+        match self.taxonomy_repository.find_all(TaxonomyQuery::builder().with_type(TaxonomyType::Category)).await {
+            Ok(categories) => Ok(Response::new(ListCategoriesResponse { categories })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
+    }
+
     async fn list_published_posts(
         &self,
         request: Request<ListPublishedPostsRequest>,
@@ -30,6 +37,20 @@ impl BlogService for MyBlogServiceServer {
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListPublishedPostsResponse { posts })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
+    }
+
+    async fn list_taxonomy_published_posts(
+        &self,
+        request: Request<ListTaxonomyPublishedPostsRequest>)
+        -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
+        let r: ListTaxonomyPublishedPostsRequest = request.into_inner();
+
+        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy).with_offset(r.offset).with_limit(r.limit);
+
+        match self.post_repository.find_all(q).await {
+            Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
     }
