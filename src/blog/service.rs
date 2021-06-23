@@ -47,7 +47,7 @@ impl BlogService for MyBlogServiceServer {
         -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
         let r: ListTaxonomyPublishedPostsRequest = request.into_inner();
 
-        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy.as_ref()).with_offset(r.offset).with_limit(r.limit);
+        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy).with_offset(r.offset).with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),

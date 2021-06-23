@@ -1,6 +1,7 @@
+use std::str::FromStr;
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::Document, Collection, Cursor};
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
 use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
@@ -18,17 +19,17 @@ pub trait PostRepository: Send + Sync + 'static {
 
 /// A post query builder.
 #[derive(Default)]
-pub struct PostQuery<'query> {
+pub struct PostQuery {
     /* Filters */
     status: Option<PostStatus>,
-    category: Option<&'query Taxonomy>,
+    category: Option<Taxonomy>,
 
     /* Pagination Options */
     offset: u32,
     limit: u32,
 }
 
-impl<'query> PostQuery<'query> {
+impl PostQuery {
     pub fn builder() -> Self {
         PostQuery {
             offset: 0,
@@ -42,7 +43,7 @@ impl<'query> PostQuery<'query> {
         self
     }
 
-    pub fn with_category(mut self, category: Option<&'query Taxonomy>) -> Self {
+    pub fn with_category(mut self, category: Option<Taxonomy>) -> Self {
         self.category = category;
         self
     }
@@ -72,15 +73,7 @@ impl MongoPostRepository {
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
-        let mut pipeline: Vec<Document> = vec![
-            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
-            doc! {"$unwind": {"path": "$author"}},
-            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
-            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
-            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
-            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
-            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}}
-        ];
+        let mut pipeline: Vec<Document> = vec![];
 
         if let Some(status) = q.status {
             pipeline.push(doc! {"$match": {"status": status as i32}});
@@ -94,11 +87,20 @@ impl PostRepository for MongoPostRepository {
         }
 
         if let Some(category) = q.category {
-            pipeline.push(doc! {"$match": category.id});
+            pipeline.push(doc! {"$match": {"categories": ObjectId::from_str(category.id.as_str())?}});
         }
 
-        pipeline.push(doc! {"$skip": q.offset as i64});
-        pipeline.push(doc! {"$limit": q.limit as i64});
+        pipeline.append(&mut vec![
+            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$unwind": {"path": "$author"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "categories", "foreignField": "_id", "as": "categories"}},
+            doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
+            doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
+            doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
+            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}},
+            doc! {"$skip": q.offset as i64},
+            doc! {"$limit": q.limit as i64},
+        ]);
 
         let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
         let mut result: Vec<Post> = vec![];
