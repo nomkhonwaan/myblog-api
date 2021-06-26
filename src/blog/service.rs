@@ -1,11 +1,10 @@
-use mongodb::Database;
 use myblog_proto_rust::myblog::proto::blog::{ListCategoriesResponse, ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
-use tonic::{Request, Response, Status};
+use tonic::{Interceptor, Request, Response, Status};
 
-use crate::blog::taxonomy::{MongoTaxonomyRepository, TaxonomyQuery, TaxonomyRepository};
+use crate::blog::taxonomy::{TaxonomyQuery, TaxonomyRepository};
 
-use super::post::{MongoPostRepository, PostQuery, PostRepository};
+use super::post::{PostQuery, PostRepository};
 
 /// An implementation of the BlogServiceServer which provides gRPC handler functions.
 pub struct MyBlogServiceServer {
@@ -32,8 +31,8 @@ impl BlogService for MyBlogServiceServer {
         &self,
         request: Request<ListPublishedPostsRequest>,
     ) -> Result<Response<ListPublishedPostsResponse>, Status> {
-        let r: ListPublishedPostsRequest = request.into_inner();
-        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_offset(r.offset).with_limit(r.limit);
+        let r = request.into_inner();
+        let q = PostQuery::builder().with_status(PostStatus::Published).with_offset(r.offset).with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListPublishedPostsResponse { posts })),
@@ -45,9 +44,8 @@ impl BlogService for MyBlogServiceServer {
         &self,
         request: Request<ListTaxonomyPublishedPostsRequest>)
         -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
-        let r: ListTaxonomyPublishedPostsRequest = request.into_inner();
-
-        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy).with_offset(r.offset).with_limit(r.limit);
+        let r = request.into_inner();
+        let q = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy).with_offset(r.offset).with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
@@ -58,11 +56,20 @@ impl BlogService for MyBlogServiceServer {
 
 #[derive(Default)]
 pub struct MyBlogServiceServerBuilder {
+    /* gRPC */
+    interceptor: Option<Interceptor>,
+
+    /* Repositories */
     post_repository: Option<Box<dyn PostRepository>>,
     taxonomy_repository: Option<Box<dyn TaxonomyRepository>>,
 }
 
 impl MyBlogServiceServerBuilder {
+    pub fn with_interceptor(mut self, interceptor: impl Into<Interceptor>) -> Self {
+        self.interceptor = Some(interceptor.into());
+        self
+    }
+
     pub fn with_post_repository(mut self, repository: Box<dyn PostRepository>) -> Self {
         self.post_repository = Some(repository);
         self
@@ -73,22 +80,19 @@ impl MyBlogServiceServerBuilder {
         self
     }
 
-    pub fn build(self) -> MyBlogServiceServer {
-        MyBlogServiceServer {
+    pub fn build(self) -> BlogServiceServer<MyBlogServiceServer> {
+        let inner = MyBlogServiceServer {
             post_repository: self.post_repository.unwrap(),
             taxonomy_repository: self.taxonomy_repository.unwrap(),
+        };
+
+        match self.interceptor {
+            Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
+            _ => BlogServiceServer::new(inner)
         }
     }
 }
 
-pub fn new(database: Database) -> BlogServiceServer<MyBlogServiceServer> {
-    BlogServiceServer::new(
-        MyBlogServiceServer::builder()
-            .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
-            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
-            .build()
-    )
-}
 
 // #[cfg(test)]
 // mod tests {
