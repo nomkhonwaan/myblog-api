@@ -14,8 +14,7 @@ chrono = "0.4"
 clap = "3.0.0-beta.2"
 mongodb = "2.0.0-beta.2"
 myblog-proto-rust = { path = "../myblog-proto-rust" }
-prost = "0.6.1"
-prost-types = "0.6.1"
+prost-types = "0.7.0"
 reqwest = { version = "0.11", features = ["json"] }
 serde = "1.0.126"
 tokio = { version = "1.7.0", features = ["full"] }
