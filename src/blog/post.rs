@@ -6,7 +6,7 @@ use myblog_proto_rust::myblog::proto::auth::User;
 use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
 use myblog_proto_rust::myblog::proto::storage::File;
 use prost_types::Timestamp;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 use tonic;
 
 use crate::encoding::bson::Unmarshal;
@@ -102,7 +102,7 @@ impl PostRepository for MongoPostRepository {
             doc! {"$limit": q.limit as i64},
         ]);
 
-        let mut cursor: Cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor: Cursor<Document> = self.collection.aggregate(pipeline, None).await?;
         let mut result: Vec<Post> = vec![];
 
         while let Some(document) = cursor.try_next().await? {

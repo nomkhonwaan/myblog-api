@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
 use mongodb::options::FindOptions;
 use myblog_proto_rust::myblog::proto::blog::{Taxonomy, TaxonomyType};
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 use crate::encoding::bson::Unmarshal;
 
@@ -42,7 +44,7 @@ impl MongoTaxonomyRepository {
 #[tonic::async_trait]
 impl TaxonomyRepository for MongoTaxonomyRepository {
     async fn find_by_id(&self, id: &str) -> Result<Option<Taxonomy>, Box<dyn std::error::Error>> {
-        let filter = doc! {"_id": ObjectId::with_string(id)? };
+        let filter = doc! {"_id": ObjectId::from_str(id)? };
 
         if let Some(document) = self.collection.find_one(filter, None).await? {
             return Ok(Some(Taxonomy::unmarshal_bson(&document)?));
@@ -55,7 +57,7 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
         let filter = doc! {"type": q.taxonomy_type as i32};
         let find_options = FindOptions::builder().sort(doc! {"name": 1}).build();
 
-        let mut cursor: Cursor = self.collection.find(filter, find_options).await?;
+        let mut cursor: Cursor<Document> = self.collection.find(filter, find_options).await?;
         let mut result: Vec<Taxonomy> = vec![];
 
         while let Some(document) = cursor.try_next().await? {
@@ -66,10 +68,10 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
     }
 
     async fn find_all_by_ids(&self, ids: &Vec<&str>) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
-        let object_ids: Result<Vec<_>, _> = ids.iter().map(|id| { ObjectId::with_string(id) }).collect();
+        let object_ids: Result<Vec<_>, _> = ids.iter().map(|id| { ObjectId::from_str(id) }).collect();
         let filter = doc! {"_id": {"$in": object_ids?}};
 
-        let mut cursor: Cursor = self.collection.find(filter, None).await?;
+        let mut cursor: Cursor<Document> = self.collection.find(filter, None).await?;
         let mut result: Vec<Taxonomy> = vec![];
 
         while let Some(document) = cursor.try_next().await? {
