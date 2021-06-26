@@ -16,8 +16,10 @@ impl Unmarshal for User {
                 profile_picture: document.get_str("profilePicture")?.to_owned(),
                 created_at: Some(document.get_datetime("createdAt")
                     .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
-                updated_at: Some(document.get_datetime("updatedAt")
-                    .and_then(|updated_at| Ok(Timestamp::from(SystemTime::from(updated_at.to_owned()))))?),
+                updated_at: match document.get_datetime("updatedAt") {
+                    Ok(updated_at) => Some(Timestamp::from(SystemTime::from(updated_at.to_owned()))),
+                    _ => None,
+                },
             }
         )
     }
