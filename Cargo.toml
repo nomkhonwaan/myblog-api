@@ -9,6 +9,7 @@ name = "myblog"
 path = "src/main.rs"
 
 [dependencies]
+alcoholic_jwt = "1.0.0"
 chrono = "0.4"
 clap = "3.0.0-beta.2"
 mongodb = "1.2.1"
