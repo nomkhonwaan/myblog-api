@@ -1,11 +1,11 @@
 [package]
-name = "myblog"
+name = "myblog-api"
 version = "3.0.0"
 authors = ["Natcha Luangaroonchai <me@nomkhonwaan.com>"]
 edition = "2018"
 
 [[bin]]
-name = "myblog"
+name = "myblog-api"
 path = "src/main.rs"
 
 [dependencies]
