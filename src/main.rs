@@ -31,6 +31,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .env("AUTHORITY")
                 .required(true),
         )
+        .arg(
+            Arg::new("audience")
+                .env("AUDIENCE")
+                .required(true),
+        )
         .get_matches();
 
     let addr = matches.value_of("listen-address").unwrap()
@@ -40,13 +45,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"beta_nomkhonwaan_com").await?;
 
     // Fetch the JSON Web Key Sets for using on the token validation
-    let jwks = fetch_jwks(&format!("{}/{}", matches.value_of("authority").unwrap(), ".well-known/jwks.json")).await?;
+    let authority = matches.value_of("authority").unwrap().to_owned();
+    let audience = matches.value_of("audience").unwrap().to_owned();
+    let jwks = fetch_jwks(&format!("{}{}", &authority, ".well-known/jwks.json")).await?;
 
     println!("server listening on {}", addr);
 
     Server::builder()
         .add_service(MyBlogServiceServer::builder()
-            .with_interceptor(auth::interceptor(&jwks))
+            .with_interceptor(auth::interceptor(authority, audience, jwks))
             .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
             .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
             .build()
