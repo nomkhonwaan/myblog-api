@@ -1,6 +1,10 @@
-use myblog_proto_rust::myblog::proto::blog::{ListCategoriesResponse, ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
-use tonic::{Interceptor, Request, Response, Status};
+use myblog_proto_rust::myblog::proto::blog::{
+    ListCategoriesResponse, ListPublishedPostsRequest, ListPublishedPostsResponse,
+    ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus,
+    TaxonomyType,
+};
+use tonic::{Request, Response, Status};
 
 use crate::blog::taxonomy::{TaxonomyQuery, TaxonomyRepository};
 
@@ -20,8 +24,15 @@ impl MyBlogServiceServer {
 
 #[tonic::async_trait]
 impl BlogService for MyBlogServiceServer {
-    async fn list_categories(&self, _: Request<()>) -> Result<Response<ListCategoriesResponse>, Status> {
-        match self.taxonomy_repository.find_all(TaxonomyQuery::builder().with_type(TaxonomyType::Category)).await {
+    async fn list_categories(
+        &self,
+        _: Request<()>,
+    ) -> Result<Response<ListCategoriesResponse>, Status> {
+        match self
+            .taxonomy_repository
+            .find_all(TaxonomyQuery::builder().with_type(TaxonomyType::Category))
+            .await
+        {
             Ok(categories) => Ok(Response::new(ListCategoriesResponse { categories })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
@@ -32,7 +43,10 @@ impl BlogService for MyBlogServiceServer {
         request: Request<ListPublishedPostsRequest>,
     ) -> Result<Response<ListPublishedPostsResponse>, Status> {
         let r = request.into_inner();
-        let q = PostQuery::builder().with_status(PostStatus::Published).with_offset(r.offset).with_limit(r.limit);
+        let q = PostQuery::builder()
+            .with_status(PostStatus::Published)
+            .with_offset(r.offset)
+            .with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListPublishedPostsResponse { posts })),
@@ -42,10 +56,14 @@ impl BlogService for MyBlogServiceServer {
 
     async fn list_taxonomy_published_posts(
         &self,
-        request: Request<ListTaxonomyPublishedPostsRequest>)
-        -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
+        request: Request<ListTaxonomyPublishedPostsRequest>,
+    ) -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
         let r = request.into_inner();
-        let q = PostQuery::builder().with_status(PostStatus::Published).with_category(r.taxonomy).with_offset(r.offset).with_limit(r.limit);
+        let q = PostQuery::builder()
+            .with_status(PostStatus::Published)
+            .with_category(r.taxonomy)
+            .with_offset(r.offset)
+            .with_limit(r.limit);
 
         match self.post_repository.find_all(q).await {
             Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
@@ -57,7 +75,7 @@ impl BlogService for MyBlogServiceServer {
 #[derive(Default)]
 pub struct MyBlogServiceServerBuilder {
     /* gRPC */
-    interceptor: Option<Interceptor>,
+    interceptor: Option<F>,
 
     /* Repositories */
     post_repository: Option<Box<dyn PostRepository>>,
@@ -65,7 +83,10 @@ pub struct MyBlogServiceServerBuilder {
 }
 
 impl MyBlogServiceServerBuilder {
-    pub fn with_interceptor(mut self, interceptor: impl Into<Interceptor>) -> Self {
+    pub fn with_interceptor(mut self, interceptor: F) -> Self
+    where
+        F: FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
+    {
         self.interceptor = Some(interceptor.into());
         self
     }
@@ -80,19 +101,23 @@ impl MyBlogServiceServerBuilder {
         self
     }
 
-    pub fn build(self) -> BlogServiceServer<MyBlogServiceServer> {
-        let inner = MyBlogServiceServer {
-            post_repository: self.post_repository.unwrap(),
-            taxonomy_repository: self.taxonomy_repository.unwrap(),
-        };
-
-        match self.interceptor {
-            Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
-            _ => BlogServiceServer::new(inner)
-        }
-    }
+    //     pub fn build(self) -> BlogServiceServer<MyBlogServiceServer> {
+    //         let inner = MyBlogServiceServer {
+    //             post_repository: self.post_repository.unwrap(),
+    //             taxonomy_repository: self.taxonomy_repository.unwrap(),
+    //         };
+    //
+    //         let a = BlogServiceServer::with_interceptor(inner, self.interceptor);
+    // )
+    //         BlogServiceServer::with_interceptor(innsert, self.interceptor.unwrap());
+    //         BlogServiceServer::new(inner)
+    //
+    //         // match self.interceptor {
+    //         //     Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
+    //         //     _ => BlogServiceServer::new(inner),
+    //         }
+    //     }
 }
-
 
 // #[cfg(test)]
 // mod tests {
@@ -100,15 +125,15 @@ impl MyBlogServiceServerBuilder {
 //     use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogService;
 //     use tonic::Request;
 //     use tonic::transport::channel::ResponseFuture;
-// 
+//
 //     use crate::blog::post::{PostQuery, PostRepository};
 //     use crate::blog::service::MyBlogServiceServer;
-// 
+//
 //     #[derive(Default)]
 //     struct MockPostRepository {
 //         find_all_post_query: Option<PostQuery>,
 //     }
-// 
+//
 //     #[tonic::async_trait]
 //     impl PostRepository for MockPostRepository {
 //         async fn find_all(&mut self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
@@ -116,18 +141,18 @@ impl MyBlogServiceServerBuilder {
 //             Ok(Vec::new())
 //         }
 //     }
-// 
+//
 //     #[test]
 //     fn list_published_posts() {
 //         // Given
 //         let post_repository = MockPostRepository::default();
 //         let myblog_service_server = MyBlogServiceServer { post_repository: Box::from(post_repository) };
 //         let expected = PostQuery::builder();
-//         
+//
 //         // When
 //         let _result =
 //             myblog_service_server.list_published_posts(Request::new(ListPublishedPostsRequest { offset: 0, limit: 5 }));
-// 
+//
 //         // Then
 //         // assert_eq!(expected, post_repository.find_all_post_query.unwrap());
 //     }
