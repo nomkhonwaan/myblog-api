@@ -4,6 +4,7 @@ use myblog_proto_rust::myblog::proto::blog::{
     ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus,
     TaxonomyType,
 };
+use tonic::service::interceptor::InterceptedService;
 use tonic::{Request, Response, Status};
 
 use crate::blog::taxonomy::{TaxonomyQuery, TaxonomyRepository};
@@ -17,7 +18,7 @@ pub struct MyBlogServiceServer {
 }
 
 impl MyBlogServiceServer {
-    pub fn builder() -> MyBlogServiceServerBuilder {
+    pub fn builder<F>() -> MyBlogServiceServerBuilder<F> {
         MyBlogServiceServerBuilder::default()
     }
 }
@@ -73,7 +74,7 @@ impl BlogService for MyBlogServiceServer {
 }
 
 #[derive(Default)]
-pub struct MyBlogServiceServerBuilder {
+pub struct MyBlogServiceServerBuilder<F> {
     /* gRPC */
     interceptor: Option<F>,
 
@@ -82,12 +83,12 @@ pub struct MyBlogServiceServerBuilder {
     taxonomy_repository: Option<Box<dyn TaxonomyRepository>>,
 }
 
-impl MyBlogServiceServerBuilder {
-    pub fn with_interceptor(mut self, interceptor: F) -> Self
-    where
-        F: FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
-    {
-        self.interceptor = Some(interceptor.into());
+impl<F> MyBlogServiceServerBuilder<F>
+where
+    F: FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
+{
+    pub fn with_interceptor(mut self, interceptor: F) -> Self {
+        self.interceptor = Some(interceptor);
         self
     }
 
@@ -101,22 +102,17 @@ impl MyBlogServiceServerBuilder {
         self
     }
 
-    //     pub fn build(self) -> BlogServiceServer<MyBlogServiceServer> {
-    //         let inner = MyBlogServiceServer {
-    //             post_repository: self.post_repository.unwrap(),
-    //             taxonomy_repository: self.taxonomy_repository.unwrap(),
-    //         };
-    //
-    //         let a = BlogServiceServer::with_interceptor(inner, self.interceptor);
-    // )
-    //         BlogServiceServer::with_interceptor(innsert, self.interceptor.unwrap());
-    //         BlogServiceServer::new(inner)
-    //
-    //         // match self.interceptor {
-    //         //     Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
-    //         //     _ => BlogServiceServer::new(inner),
-    //         }
-    //     }
+    pub fn build(self) -> InterceptedService<BlogServiceServer<MyBlogServiceServer>, F> {
+        let inner = MyBlogServiceServer {
+            post_repository: self.post_repository.unwrap(),
+            taxonomy_repository: self.taxonomy_repository.unwrap(),
+        };
+
+        match self.interceptor {
+            Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
+            _ => BlogServiceServer::new(inner),
+        }
+    }
 }
 
 // #[cfg(test)]

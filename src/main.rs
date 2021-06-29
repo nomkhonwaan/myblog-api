@@ -1,6 +1,8 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
 use mongodb::{bson::doc, options::ClientOptions, Client, Database};
+use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
+use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Server;
 
 use crate::blog::post::MongoPostRepository;
@@ -65,19 +67,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Server::builder()
         .add_service(
-            MyBlogServiceServer::builder()
-                .with_interceptor(auth::interceptor(
-                    authority.to_string(),
-                    audience.to_string(),
-                    jwks,
-                ))
-                .with_post_repository(Box::from(MongoPostRepository::new(
-                    database.collection("posts"),
-                )))
-                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(
-                    database.collection("taxonomies"),
-                )))
-                .build(),
+            MyBlogServiceServer::builder::<
+                dyn FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
+            >()
+            // .with_interceptor(auth::interceptor(
+            //     authority.to_string(),
+            //     audience.to_string(),
+            //     jwks,
+            // ))
+            .with_post_repository(Box::from(MongoPostRepository::new(
+                database.collection("posts"),
+            )))
+            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(
+                database.collection("taxonomies"),
+            )))
+            .build(),
         )
         .serve(addr)
         .await?;
