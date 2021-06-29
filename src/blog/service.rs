@@ -1,24 +1,22 @@
-use myblog_proto_rust::myblog::proto::blog::blog_service_server::{BlogService, BlogServiceServer};
 use myblog_proto_rust::myblog::proto::blog::{
-    ListCategoriesResponse, ListPublishedPostsRequest, ListPublishedPostsResponse,
-    ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse, PostStatus,
-    TaxonomyType,
+    blog_service_server::BlogService, ListCategoriesResponse, ListPublishedPostsRequest,
+    ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
+    ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType,
 };
-use tonic::service::interceptor::InterceptedService;
 use tonic::{Request, Response, Status};
 
-use crate::blog::taxonomy::{TaxonomyQuery, TaxonomyRepository};
+use crate::blog::{
+    post::{PostQuery, PostRepository},
+    taxonomy::{TaxonomyQuery, TaxonomyRepository},
+};
 
-use super::post::{PostQuery, PostRepository};
-
-/// An implementation of the BlogServiceServer which provides gRPC handler functions.
 pub struct MyBlogServiceServer {
     post_repository: Box<dyn PostRepository>,
     taxonomy_repository: Box<dyn TaxonomyRepository>,
 }
 
 impl MyBlogServiceServer {
-    pub fn builder<F>() -> MyBlogServiceServerBuilder<F> {
+    pub fn builder() -> MyBlogServiceServerBuilder {
         MyBlogServiceServerBuilder::default()
     }
 }
@@ -74,24 +72,13 @@ impl BlogService for MyBlogServiceServer {
 }
 
 #[derive(Default)]
-pub struct MyBlogServiceServerBuilder<F> {
-    /* gRPC */
-    interceptor: Option<F>,
-
+pub struct MyBlogServiceServerBuilder {
     /* Repositories */
     post_repository: Option<Box<dyn PostRepository>>,
     taxonomy_repository: Option<Box<dyn TaxonomyRepository>>,
 }
 
-impl<F> MyBlogServiceServerBuilder<F>
-where
-    F: FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
-{
-    pub fn with_interceptor(mut self, interceptor: F) -> Self {
-        self.interceptor = Some(interceptor);
-        self
-    }
-
+impl MyBlogServiceServerBuilder {
     pub fn with_post_repository(mut self, repository: Box<dyn PostRepository>) -> Self {
         self.post_repository = Some(repository);
         self
@@ -102,15 +89,10 @@ where
         self
     }
 
-    pub fn build(self) -> InterceptedService<BlogServiceServer<MyBlogServiceServer>, F> {
-        let inner = MyBlogServiceServer {
+    pub fn build(self) -> MyBlogServiceServer {
+        MyBlogServiceServer {
             post_repository: self.post_repository.unwrap(),
             taxonomy_repository: self.taxonomy_repository.unwrap(),
-        };
-
-        match self.interceptor {
-            Some(interceptor) => BlogServiceServer::with_interceptor(inner, interceptor),
-            _ => BlogServiceServer::new(inner),
         }
     }
 }
