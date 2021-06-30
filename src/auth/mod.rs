@@ -1,4 +1,4 @@
-use alcoholic_jwt::{token_kid, validate, Validation, JWKS};
+use alcoholic_jwt::{JWKS, token_kid, validate, Validation};
 use serde::{Deserialize, Serialize};
 use tonic::{Request, Status};
 
@@ -12,12 +12,8 @@ struct Claims {
 }
 
 /// The gRPC interceptor for validating and extracting user info from the Bearer token (if exists).
-pub fn new_interceptor(
-    authority: String,
-    audience: String,
-    jwks: JWKS,
-) -> impl FnMut(Request<()>) -> Result<Request<()>, Status> {
-    move |mut r: Request<()>| -> Result<Request<()>, Status> {
+pub fn intercept(authority: String, audience: String, jwks: JWKS) -> impl FnMut(Request<()>) -> Result<Request<()>, Status> + Clone {
+    move |mut r| -> Result<Request<()>, Status> {
         if let Some(metadata) = r.metadata().get("Authorization") {
             let validations = vec![
                 Validation::Issuer(authority.clone()),
@@ -26,29 +22,27 @@ pub fn new_interceptor(
                 Validation::NotExpired,
             ];
 
-            if let Some(result) = metadata
-                .to_str()
-                .unwrap_or_default()
-                .split_whitespace()
-                .collect::<Vec<&str>>()
-                .get(1)
-                .map(|token| {
-                    let kid = token_kid(*token)
-                        .expect("Failed to decode token headers")
-                        .expect("No 'kid' claim present in token");
-                    let jwk = jwks.find(&kid).expect("Specified key not found in set");
+            let mut token = metadata.to_str().unwrap_or_default();
 
-                    validate(*token, jwk, validations)
-                })
-            {
-                if let Ok(valid_jwt) = result {
-                    r.extensions_mut()
-                        .insert(serde_json::from_value::<Claims>(valid_jwt.claims).unwrap());
-
-                    return Ok(r);
-                }
+            // This is intentional to not accept a lowercase "bearer"
+            // https://datatracker.ietf.org/doc/html/rfc6750
+            if token.contains("Bearer") {
+                token = token[6..token.len()].trim();
             }
 
+            let kid = token_kid(token)
+                .expect("Failed to decode token headers")
+                .expect("No 'kid' claim present in token");
+
+            let jwk = jwks.find(&kid).expect("Specified key not found in set");
+
+            if let Ok(valid_jwt) = validate(token, jwk, validations) {
+                r.extensions_mut()
+                    .insert(serde_json::from_value::<Claims>(valid_jwt.claims).unwrap());
+
+                return Ok(r);
+            }
+            
             return Err(Status::unauthenticated("unauthorized"));
         }
 
