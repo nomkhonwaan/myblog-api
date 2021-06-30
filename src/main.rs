@@ -1,13 +1,14 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
-use mongodb::{bson::doc, options::ClientOptions, Client, Database};
+use mongodb::{bson::doc, Client, Database, options::ClientOptions};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
-use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Server;
 
-use crate::blog::post::MongoPostRepository;
-use crate::blog::service::MyBlogServiceServer;
-use crate::blog::taxonomy::MongoTaxonomyRepository;
+use crate::blog::{
+    post::MongoPostRepository,
+    service::MyBlogServiceServer,
+    taxonomy::MongoTaxonomyRepository,
+};
 
 mod auth;
 mod blog;
@@ -56,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         matches.value_of("mongodb-uri").unwrap(),
         &"beta_nomkhonwaan_com",
     )
-    .await?;
+        .await?;
 
     let authority = matches.value_of("authority").unwrap();
     let audience = matches.value_of("audience").unwrap();
@@ -66,23 +67,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("server listening on {}", addr);
 
     Server::builder()
-        .add_service(
-            MyBlogServiceServer::builder::<
-                dyn FnMut(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
-            >()
-            // .with_interceptor(auth::interceptor(
-            //     authority.to_string(),
-            //     audience.to_string(),
-            //     jwks,
-            // ))
-            .with_post_repository(Box::from(MongoPostRepository::new(
-                database.collection("posts"),
-            )))
-            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(
-                database.collection("taxonomies"),
-            )))
-            .build(),
-        )
+        .add_service(BlogServiceServer::with_interceptor(
+            MyBlogServiceServer::builder()
+                .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
+                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
+                .build(),
+            auth::intercept(authority.to_string(), audience.to_string(), jwks),
+        ))
         .serve(addr)
         .await?;
 
