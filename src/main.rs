@@ -2,7 +2,8 @@ use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
 use mongodb::{bson::doc, Client, Database, options::ClientOptions};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
-use tonic::transport::Server;
+use tokio::fs;
+use tonic::transport::{Identity, Server, ServerTlsConfig};
 
 use crate::blog::{
     post::MongoPostRepository,
@@ -23,27 +24,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .arg(
             Arg::new("listen-address")
                 .default_value("[::1]:8080")
-                .about("The combination of IP address and listen port to serve the service")
+                .about("Specify the host/IP and port to which gRPC server binds for listening")
                 .long("listen-address")
                 .takes_value(true),
         )
         .arg(
+            Arg::new("tls-certificate")
+                .about("Provide public and private key pairs for enabling TLS")
+                .long("tls-certificate")
+                .takes_value(true)
+                .requires("tls-certificate-key")
+        )
+        .arg(
+            Arg::new("tls-certificate-key")
+                .about("Provide public and private key paris for enabling TLS")
+                .long("tls-certificate-key")
+                .takes_value(true)
+                .requires("tls-certificate")
+        )
+        .arg(
             Arg::new("mongodb-uri")
-                .about("URI which can be used to create a MongoDB instance")
+                .about("Specify URI which can be used to create a MongoDB instance")
                 .long("mongodb-uri")
                 .takes_value(true)
                 .required(true),
         )
         .arg(
             Arg::new("authority")
-                .about("The address of the token-issuing authentication server")
+                .about("Specify the address of the token-issuing authentication server")
                 .long("authority")
                 .takes_value(true)
                 .required(true),
         )
         .arg(
             Arg::new("audience")
-                .about("Refer to the resource server that should accept the token")
+                .about("Specify the resource server that should accept the token")
                 .long("audience")
                 .takes_value(true)
                 .required(true),
@@ -53,29 +68,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = matches.value_of("listen-address").unwrap().parse().unwrap();
 
     // TODO: need to get a database name from the connection string instead
-    let database = connect_mongodb(
-        matches.value_of("mongodb-uri").unwrap(),
-        &"beta_nomkhonwaan_com",
-    )
-        .await?;
+    let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"beta_nomkhonwaan_com").await?;
 
     let authority = matches.value_of("authority").unwrap();
     let audience = matches.value_of("audience").unwrap();
     // Fetch the JSON Web Key Sets for using on the token validation
     let jwks = fetch_jwks(&format!("{}{}", authority, ".well-known/jwks.json")).await?;
 
+    let mut builder = Server::builder();
+
+    if let (Some(cert), Some(key)) = (
+        matches.value_of("tls-certificate"),
+        matches.value_of("tls-certificate-key"),
+    ) {
+        let identity = Identity::from_pem(fs::read(cert).await?, fs::read(key).await?);
+        builder = builder.tls_config(ServerTlsConfig::new().identity(identity))?;
+    }
+
     println!("server listening on {}", addr);
 
-    Server::builder()
-        .add_service(BlogServiceServer::with_interceptor(
-            MyBlogServiceServer::builder()
-                .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
-                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
-                .build(),
-            auth::intercept(authority.to_string(), audience.to_string(), jwks),
-        ))
-        .serve(addr)
-        .await?;
+    builder.add_service(BlogServiceServer::with_interceptor(
+        MyBlogServiceServer::builder()
+            .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
+            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
+            .build(),
+        auth::intercept(authority.to_string(), audience.to_string(), jwks),
+    )).serve(addr).await?;
 
     Ok(())
 }
