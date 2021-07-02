@@ -97,7 +97,6 @@ impl PostRepository for MongoPostRepository {
             doc! {"$lookup": {"from": "taxonomies", "localField": "tags", "foreignField": "_id", "as": "tags"}},
             doc! {"$lookup": {"from": "files", "localField": "featuredImage", "foreignField": "_id", "as": "featuredImage"}},
             doc! {"$unwind": {"path": "$featuredImage", "preserveNullAndEmptyArrays": true}},
-            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}},
             doc! {"$skip": q.offset as i64},
             doc! {"$limit": q.limit as i64},
         ]);
@@ -150,15 +149,6 @@ impl Unmarshal for Post {
                 Ok(featured_image) => Some(File::unmarshal_bson(featured_image)?),
                 _ => None,
             },
-            attachments: document.get_array("attachments")
-                .and_then(|attachments| {
-                    attachments
-                        .into_iter()
-                        .map(|attachment| attachment.as_document())
-                        .filter_map(|attachment| attachment)
-                        .map(|attachment| File::unmarshal_bson(attachment))
-                        .collect::<Result<Vec<File>, _>>()
-                })?,
             created_at: Some(document.get_datetime("createdAt")
                 .and_then(|created_at| Ok(Timestamp::from(SystemTime::from(created_at.to_owned()))))?),
             updated_at: match document.get_datetime("updatedAt") {
