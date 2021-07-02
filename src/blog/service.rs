@@ -1,7 +1,11 @@
 use myblog_proto_rust::myblog::proto::blog::{
-    blog_service_server::BlogService, ListCategoriesResponse, ListPublishedPostsRequest,
-    ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
-    ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType,
+    blog_service_server::BlogService,
+    ListCategoriesResponse,
+    ListPostAttachmentsRequest, ListPostAttachmentsResponse,
+    ListPostCommentsRequest, ListPostCommentsResponse,
+    ListPublishedPostsRequest, ListPublishedPostsResponse,
+    ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse,
+    PostStatus, TaxonomyType,
 };
 use tonic::{Request, Response, Status};
 
@@ -68,6 +72,20 @@ impl BlogService for MyBlogServiceServer {
             Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
+    }
+
+    async fn list_post_comments(
+        &self,
+        _request: Request<ListPostCommentsRequest>,
+    ) -> Result<Response<ListPostCommentsResponse>, Status> {
+        Ok(Response::new(ListPostCommentsResponse { comments: vec![] }))
+    }
+
+    async fn list_post_attachments(
+        &self,
+        _request: Request<ListPostAttachmentsRequest>,
+    ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
+        Ok(Response::new(ListPostAttachmentsResponse { attachments: vec![] }))
     }
 }
 
