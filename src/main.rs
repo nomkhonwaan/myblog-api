@@ -1,18 +1,17 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
-use mongodb::{bson::doc, Client, Database, options::ClientOptions};
+use mongodb::{bson::doc, options::ClientOptions, Client, Database};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
 use tokio::fs;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 
 use crate::blog::{
-    post::MongoPostRepository,
-    service::MyBlogServiceServer,
-    taxonomy::MongoTaxonomyRepository,
+    post::MongoPostRepository, service::MyBlogService, taxonomy::MongoTaxonomyRepository,
 };
 
 mod auth;
 mod blog;
+mod discussion;
 mod encoding;
 mod storage;
 
@@ -33,14 +32,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .about("Provide public and private key pairs for enabling TLS")
                 .long("tls-certificate")
                 .takes_value(true)
-                .requires("tls-certificate-key")
+                .requires("tls-certificate-key"),
         )
         .arg(
             Arg::new("tls-certificate-key")
                 .about("Provide public and private key paris for enabling TLS")
                 .long("tls-certificate-key")
                 .takes_value(true)
-                .requires("tls-certificate")
+                .requires("tls-certificate"),
         )
         .arg(
             Arg::new("mongodb-uri")
@@ -68,7 +67,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = matches.value_of("listen-address").unwrap().parse().unwrap();
 
     // TODO: need to get a database name from the connection string instead
-    let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"beta_nomkhonwaan_com").await?;
+    let database = connect_mongodb(
+        matches.value_of("mongodb-uri").unwrap(),
+        &"beta_nomkhonwaan_com",
+    )
+    .await?;
 
     let authority = matches.value_of("authority").unwrap();
     let audience = matches.value_of("audience").unwrap();
@@ -87,13 +90,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("server listening on {}", addr);
 
-    builder.add_service(BlogServiceServer::with_interceptor(
-        MyBlogServiceServer::builder()
-            .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
-            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
-            .build(),
-        auth::intercept(authority.to_string(), audience.to_string(), jwks),
-    )).serve(addr).await?;
+    builder
+        .add_service(BlogServiceServer::with_interceptor(
+            MyBlogService::builder()
+                .with_post_repository(Box::from(MongoPostRepository::new(
+                    database.collection("posts"),
+                )))
+                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(
+                    database.collection("taxonomies"),
+                )))
+                .build(),
+            auth::intercept(authority.to_string(), audience.to_string(), jwks),
+        ))
+        .serve(addr)
+        .await?;
 
     Ok(())
 }
