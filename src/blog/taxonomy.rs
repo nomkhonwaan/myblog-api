@@ -1,17 +1,21 @@
 use std::str::FromStr;
 
-use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
 use mongodb::options::FindOptions;
+use mongodb::{bson::doc, bson::oid::ObjectId, bson::Document, Collection, Cursor};
 use myblog_proto_rust::myblog::proto::blog::{Taxonomy, TaxonomyType};
 use tokio_stream::StreamExt;
 
-use crate::encoding::bson::Unmarshal;
+use crate::encoding::bson::Unmarshaler;
 
 #[tonic::async_trait]
 pub trait TaxonomyRepository: Send + Sync + 'static {
     async fn find_by_id(&self, id: &str) -> Result<Option<Taxonomy>, Box<dyn std::error::Error>>;
-    async fn find_all(&self, q: TaxonomyQuery) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
-    async fn find_all_by_ids(&self, ids: &Vec<&str>) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
+    async fn find_all(&self, q: TaxonomyQuery)
+        -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
+    async fn find_all_by_ids(
+        &self,
+        ids: &Vec<&str>,
+    ) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default)]
@@ -22,7 +26,9 @@ pub struct TaxonomyQuery {
 
 impl TaxonomyQuery {
     pub fn builder() -> Self {
-        TaxonomyQuery { taxonomy_type: TaxonomyType::Category }
+        TaxonomyQuery {
+            taxonomy_type: TaxonomyType::Category,
+        }
     }
 
     pub fn with_type(mut self, taxonomy_type: TaxonomyType) -> Self {
@@ -53,7 +59,10 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
         Ok(None)
     }
 
-    async fn find_all(&self, q: TaxonomyQuery) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
+    async fn find_all(
+        &self,
+        q: TaxonomyQuery,
+    ) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
         let filter = doc! {"type": q.taxonomy_type as i32};
         let find_options = FindOptions::builder().sort(doc! {"name": 1}).build();
 
@@ -67,8 +76,11 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
         Ok(result)
     }
 
-    async fn find_all_by_ids(&self, ids: &Vec<&str>) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
-        let object_ids: Result<Vec<_>, _> = ids.iter().map(|id| { ObjectId::from_str(id) }).collect();
+    async fn find_all_by_ids(
+        &self,
+        ids: &Vec<&str>,
+    ) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>> {
+        let object_ids: Result<Vec<_>, _> = ids.iter().map(|id| ObjectId::from_str(id)).collect();
         let filter = doc! {"_id": {"$in": object_ids?}};
 
         let mut cursor: Cursor<Document> = self.collection.find(filter, None).await?;
@@ -82,8 +94,13 @@ impl TaxonomyRepository for MongoTaxonomyRepository {
     }
 }
 
-impl Unmarshal for Taxonomy {
-    fn unmarshal_bson(document: &Document) -> Result<Self, mongodb::bson::document::ValueAccessError> where Self: Sized {
+impl Unmarshaler for Taxonomy {
+    fn unmarshal_bson(
+        document: &Document,
+    ) -> Result<Self, mongodb::bson::document::ValueAccessError>
+    where
+        Self: Sized,
+    {
         Ok(Taxonomy {
             id: document.get_object_id("_id")?.to_hex(),
             name: document.get_str("name")?.to_owned(),

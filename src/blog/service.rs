@@ -1,11 +1,8 @@
 use myblog_proto_rust::myblog::proto::blog::{
-    blog_service_server::BlogService,
-    ListCategoriesResponse,
-    ListPostAttachmentsRequest, ListPostAttachmentsResponse,
-    ListPostCommentsRequest, ListPostCommentsResponse,
-    ListPublishedPostsRequest, ListPublishedPostsResponse,
-    ListTaxonomyPublishedPostsRequest, ListTaxonomyPublishedPostsResponse,
-    PostStatus, TaxonomyType,
+    blog_service_server::BlogService, ListCategoriesResponse, ListPostAttachmentsRequest,
+    ListPostAttachmentsResponse, ListPostCommentsRequest, ListPostCommentsResponse,
+    ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
+    ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType,
 };
 use tonic::{Request, Response, Status};
 
@@ -14,19 +11,19 @@ use crate::blog::{
     taxonomy::{TaxonomyQuery, TaxonomyRepository},
 };
 
-pub struct MyBlogServiceServer {
+pub struct MyBlogService {
     post_repository: Box<dyn PostRepository>,
     taxonomy_repository: Box<dyn TaxonomyRepository>,
 }
 
-impl MyBlogServiceServer {
+impl MyBlogService {
     pub fn builder() -> MyBlogServiceServerBuilder {
         MyBlogServiceServerBuilder::default()
     }
 }
 
 #[tonic::async_trait]
-impl BlogService for MyBlogServiceServer {
+impl BlogService for MyBlogService {
     async fn list_categories(
         &self,
         _: Request<()>,
@@ -85,7 +82,9 @@ impl BlogService for MyBlogServiceServer {
         &self,
         _request: Request<ListPostAttachmentsRequest>,
     ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
-        Ok(Response::new(ListPostAttachmentsResponse { attachments: vec![] }))
+        Ok(Response::new(ListPostAttachmentsResponse {
+            attachments: vec![],
+        }))
     }
 }
 
@@ -107,8 +106,8 @@ impl MyBlogServiceServerBuilder {
         self
     }
 
-    pub fn build(self) -> MyBlogServiceServer {
-        MyBlogServiceServer {
+    pub fn build(self) -> MyBlogService {
+        MyBlogService {
             post_repository: self.post_repository.unwrap(),
             taxonomy_repository: self.taxonomy_repository.unwrap(),
         }
