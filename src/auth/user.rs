@@ -1,11 +1,41 @@
 use std::str::FromStr;
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::oid::ObjectId, bson::DateTime, bson::Document};
+use mongodb::{bson::DateTime, bson::doc, bson::Document, bson::oid::ObjectId, Collection};
 use myblog_proto_rust::myblog::proto::auth::User;
 use prost_types::Timestamp;
 
 use crate::encoding::bson::{Marshaler, Unmarshaler};
+
+/// A user repository definition.
+#[tonic::async_trait]
+pub trait UserRepository: Send + Sync + 'static {
+    async fn create(&self, u: &mut User) -> Result<(), Box<dyn std::error::Error>>;
+}
+
+/// An implementation of the UserRepository specifies with MongoDB.
+pub struct MongoUserRepository {
+    collection: Collection<Document>,
+}
+
+impl MongoUserRepository {
+    pub fn new(collection: Collection<Document>) -> Self {
+        MongoUserRepository { collection }
+    }
+}
+
+#[tonic::async_trait]
+impl UserRepository for MongoUserRepository {
+    async fn create(&self, u: &mut User) -> Result<(), Box<dyn std::error::Error>> {
+        match self.collection.insert_one(&u.marshal_bson(), None).await {
+            Ok(result) => {
+                u.id = result.inserted_id.as_object_id()?.to_hex();
+                Ok(())
+            }
+            Err(e) => e,
+        }
+    }
+}
 
 impl Marshaler for User {
     fn marshal_bson(&self) -> Result<Document, Box<dyn std::error::Error>> {
@@ -14,14 +44,8 @@ impl Marshaler for User {
             "user": self.user.as_str(),
             "displayName": self.display_name.as_str(),
             "profilePicture": self.profile_picture.as_str(),
+            "createdAt": self.created_at.as_ref().unwrap().seconds * 1000,
         };
-
-        if self.created_at.is_some() {
-            document.insert(
-                "createdAt",
-                DateTime::from_millis(self.created_at.as_ref().unwrap().seconds * 1000),
-            );
-        }
 
         if self.updated_at.is_some() {
             document.insert(
@@ -38,8 +62,8 @@ impl Unmarshaler for User {
     fn unmarshal_bson(
         document: &Document,
     ) -> Result<Self, mongodb::bson::document::ValueAccessError>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         Ok(User {
             id: document.get_object_id("_id")?.to_hex(),
