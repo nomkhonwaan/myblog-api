@@ -8,7 +8,6 @@ use prost_types::Timestamp;
 use tokio_stream::StreamExt;
 
 use crate::encoding::bson::{Marshaler, Unmarshaler};
-use chrono::DateTime;
 
 #[tonic::async_trait]
 pub trait CommentRepository: Send + Sync + 'static {
@@ -34,20 +33,20 @@ impl CommentRepository for MongoCommentRepository {
     }
 }
 
-impl Marshaler for Comment {
-    fn marshal_bson(&self) -> Document {
-        let mut document = doc! {
-            "status": self.status,
-            "text": self.text.to_string(),
-            // "author": self.author.marshal_bson(),
-            // "parent": self.parent.marshal_bson(),
-            // "children": self.children.marshal_bson(),
-            "created_at": mongodb::bson::DateTime
-        };
-
-        document
-    }
-}
+// impl Marshaler for Comment {
+//     fn marshal_bson(&self) -> Document {
+//         let mut document = doc! {
+//             "status": self.status,
+//             "text": self.text.to_string(),
+//             // "author": self.author.marshal_bson(),
+//             // "parent": self.parent.marshal_bson(),
+//             // "children": self.children.marshal_bson(),
+//             "created_at": mongodb::bson::DateTime
+//         };
+//
+//         document
+//     }
+// }
 
 impl Unmarshaler for Comment {
     fn unmarshal_bson(
