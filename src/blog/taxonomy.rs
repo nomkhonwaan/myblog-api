@@ -1,23 +1,21 @@
 use std::str::FromStr;
 
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
 use mongodb::options::FindOptions;
-use mongodb::{bson::doc, bson::oid::ObjectId, bson::Document, Collection, Cursor};
 use myblog_proto_rust::myblog::proto::blog::{Taxonomy, TaxonomyType};
 use tokio_stream::StreamExt;
 
 use crate::encoding::bson::Unmarshaler;
 
+/// A taxonomy repository definition.
 #[tonic::async_trait]
 pub trait TaxonomyRepository: Send + Sync + 'static {
     async fn find_by_id(&self, id: &str) -> Result<Option<Taxonomy>, Box<dyn std::error::Error>>;
-    async fn find_all(&self, q: TaxonomyQuery)
-        -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
-    async fn find_all_by_ids(
-        &self,
-        ids: &Vec<&str>,
-    ) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
+    async fn find_all(&self, q: TaxonomyQuery) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
+    async fn find_all_by_ids(&self, ids: &Vec<&str>) -> Result<Vec<Taxonomy>, Box<dyn std::error::Error>>;
 }
 
+/// A taxonomy query builder.
 #[derive(Default)]
 pub struct TaxonomyQuery {
     /* Filters */
@@ -37,6 +35,7 @@ impl TaxonomyQuery {
     }
 }
 
+/// An implementation of the TaxonomyRepository specifies with MongoDB.
 pub struct MongoTaxonomyRepository {
     collection: Collection<Document>,
 }
@@ -98,8 +97,8 @@ impl Unmarshaler for Taxonomy {
     fn unmarshal_bson(
         document: &Document,
     ) -> Result<Self, mongodb::bson::document::ValueAccessError>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         Ok(Taxonomy {
             id: document.get_object_id("_id")?.to_hex(),
