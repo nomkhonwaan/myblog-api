@@ -2,7 +2,7 @@ use mongodb::bson::Document;
 
 /// Provide a MongoDB specific marshaling function.
 pub trait Marshaler {
-    fn marshal_bson(&self) -> Document;
+    fn marshal_bson(&self) -> Result<Document, Box<dyn std::error::Error>>;
 }
 
 /// Provide a MongoDB specific un-marshaling function.
