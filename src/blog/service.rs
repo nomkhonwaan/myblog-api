@@ -17,8 +17,8 @@ pub struct MyBlogService {
 }
 
 impl MyBlogService {
-    pub fn builder() -> MyBlogServiceServerBuilder {
-        MyBlogServiceServerBuilder::default()
+    pub fn builder() -> MyBlogServiceBuilder {
+        MyBlogServiceBuilder::default()
     }
 }
 
@@ -89,13 +89,13 @@ impl BlogService for MyBlogService {
 }
 
 #[derive(Default)]
-pub struct MyBlogServiceServerBuilder {
+pub struct MyBlogServiceBuilder {
     /* Repositories */
     post_repository: Option<Box<dyn PostRepository>>,
     taxonomy_repository: Option<Box<dyn TaxonomyRepository>>,
 }
 
-impl MyBlogServiceServerBuilder {
+impl MyBlogServiceBuilder {
     pub fn with_post_repository(mut self, repository: Box<dyn PostRepository>) -> Self {
         self.post_repository = Some(repository);
         self
