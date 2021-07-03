@@ -1,10 +1,38 @@
+use std::str::FromStr;
 use std::time::SystemTime;
 
-use mongodb::bson::Document;
+use mongodb::{bson::doc, bson::oid::ObjectId, bson::DateTime, bson::Document};
 use myblog_proto_rust::myblog::proto::auth::User;
 use prost_types::Timestamp;
 
-use crate::encoding::bson::Unmarshaler;
+use crate::encoding::bson::{Marshaler, Unmarshaler};
+
+impl Marshaler for User {
+    fn marshal_bson(&self) -> Result<Document, Box<dyn std::error::Error>> {
+        let mut document = doc! {
+            "_id": ObjectId::from_str(self.id.as_str())?,
+            "user": self.user.as_str(),
+            "displayName": self.display_name.as_str(),
+            "profilePicture": self.profile_picture.as_str(),
+        };
+
+        if self.created_at.is_some() {
+            document.insert(
+                "createdAt",
+                DateTime::from_millis(self.created_at.as_ref().unwrap().seconds * 1000),
+            );
+        }
+
+        if self.updated_at.is_some() {
+            document.insert(
+                "updatedAt",
+                DateTime::from_millis(self.updated_at.as_ref().unwrap().seconds * 1000),
+            );
+        }
+
+        Ok(document)
+    }
+}
 
 impl Unmarshaler for User {
     fn unmarshal_bson(
