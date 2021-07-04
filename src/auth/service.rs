@@ -1,9 +1,11 @@
 use myblog_proto_rust::myblog::proto::auth::{
     auth_service_server::AuthService,
     CreateUserRequest, CreateUserResponse,
+    User,
 };
 use tonic::{Request, Response, Status};
 
+use crate::auth::Claims;
 use crate::auth::user::UserRepository;
 
 pub struct MyAuthService {
@@ -17,7 +19,29 @@ impl MyAuthService {
 #[tonic::async_trait]
 impl AuthService for MyAuthService {
     async fn create_user(&self, request: Request<CreateUserRequest>) -> Result<Response<CreateUserResponse>, Status> {
-        todo!()
+        let sub = match request.extensions().get::<Claims>() {
+            Some(claims) => Ok(claims.sub.clone()),
+            None => Err(Status::unauthenticated("Forbidden")),
+        }?;
+
+        let r = request.into_inner();
+        if r.user.is_none() {
+            return Err(Status::invalid_argument("Missing required 'user' field"));
+        }
+
+        let mut user = r.user.unwrap();
+        user.user = sub;
+        
+        let existing_user = self.user_repository.find_by_user(user.user.as_str()).await
+            .or_else(|err| Err(Status::internal(err.to_string())))?;
+        if existing_user.is_some() {
+            return Ok(Response::new(CreateUserResponse { user: existing_user }));
+        }
+
+        match self.user_repository.create(&mut user).await {
+            Ok(_) => Ok(Response::new(CreateUserResponse { user: Some(user) })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
     }
 }
 
