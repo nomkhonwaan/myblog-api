@@ -13,7 +13,7 @@ struct Claims {
 }
 
 /// The gRPC interceptor for validating and extracting user info from the Bearer token (if exists).
-pub fn intercept(
+pub fn new_interceptor(
     authority: String,
     audience: String,
     jwks: JWKS,
@@ -48,7 +48,7 @@ pub fn intercept(
                 return Ok(r);
             }
 
-            return Err(Status::unauthenticated("unauthorized"));
+            return Err(Status::unauthenticated("Unauthorized"));
         }
 
         Ok(r)

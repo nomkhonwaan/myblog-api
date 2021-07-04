@@ -1,10 +1,13 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
-use mongodb::{bson::doc, options::ClientOptions, Client, Database};
+use mongodb::{bson::doc, Client, Database, options::ClientOptions};
+use myblog_proto_rust::myblog::proto::auth::auth_service_server::AuthServiceServer;
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
 use tokio::fs;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 
+use crate::auth::service::MyAuthService;
+use crate::auth::user::MongoUserRepository;
 use crate::blog::{
     post::MongoPostRepository, service::MyBlogService, taxonomy::MongoTaxonomyRepository,
 };
@@ -71,12 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         matches.value_of("mongodb-uri").unwrap(),
         &"beta_nomkhonwaan_com",
     )
-    .await?;
-
-    let authority = matches.value_of("authority").unwrap();
-    let audience = matches.value_of("audience").unwrap();
-    // Fetch the JSON Web Key Sets for using on the token validation
-    let jwks = fetch_jwks(&format!("{}{}", authority, ".well-known/jwks.json")).await?;
+        .await?;
 
     let mut builder = Server::builder();
 
@@ -90,17 +88,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("server listening on {}", addr);
 
+    let authority = matches.value_of("authority").unwrap();
+    let interceptor = auth::new_interceptor(
+        authority.to_string(),
+        matches.value_of("audience").unwrap().to_string(),
+        fetch_jwks(&format!("{}{}", authority, ".well-known/jwks.json")).await?,
+    );
+
     builder
+        .add_service(AuthServiceServer::with_interceptor(
+            MyAuthService::builder()
+                .with_user_repository(Box::from(MongoUserRepository::new(database.collection("users"))))
+                .build(),
+            interceptor.clone(),
+        ))
         .add_service(BlogServiceServer::with_interceptor(
             MyBlogService::builder()
-                .with_post_repository(Box::from(MongoPostRepository::new(
-                    database.collection("posts"),
-                )))
-                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(
-                    database.collection("taxonomies"),
-                )))
+                .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
+                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
                 .build(),
-            auth::intercept(authority.to_string(), audience.to_string(), jwks),
+            interceptor.clone(),
         ))
         .serve(addr)
         .await?;
@@ -108,6 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Perform a database connection to MongoDB.
 async fn connect_mongodb(uri: &str, database: &str) -> Result<Database, mongodb::error::Error> {
     let client_options = ClientOptions::parse(uri).await?;
     let client = Client::with_options(client_options)?;
@@ -122,6 +130,7 @@ async fn connect_mongodb(uri: &str, database: &str) -> Result<Database, mongodb:
     }
 }
 
+/// Retrieve the JWKS JSON file from the authority server and parse it into a JWKS object.
 async fn fetch_jwks(uri: &str) -> Result<JWKS, Box<dyn std::error::Error>> {
     let response = reqwest::get(uri).await?;
     let jwks = response.json::<JWKS>().await?;
