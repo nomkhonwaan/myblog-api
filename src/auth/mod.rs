@@ -1,7 +1,8 @@
-use alcoholic_jwt::{JWKS, token_kid, validate, Validation};
+use alcoholic_jwt::{token_kid, validate, Validation, JWKS};
 use serde::{Deserialize, Serialize};
 use tonic::{Request, Status};
 
+pub mod service;
 pub mod user;
 
 /// User context that deserializes from the JSON Web Token string.
@@ -12,7 +13,11 @@ struct Claims {
 }
 
 /// The gRPC interceptor for validating and extracting user info from the Bearer token (if exists).
-pub fn intercept(authority: String, audience: String, jwks: JWKS) -> impl FnMut(Request<()>) -> Result<Request<()>, Status> + Clone {
+pub fn new_interceptor(
+    authority: String,
+    audience: String,
+    jwks: JWKS,
+) -> impl FnMut(Request<()>) -> Result<Request<()>, Status> + Clone {
     move |mut r| -> Result<Request<()>, Status> {
         if let Some(metadata) = r.metadata().get("Authorization") {
             let validations = vec![
@@ -42,8 +47,8 @@ pub fn intercept(authority: String, audience: String, jwks: JWKS) -> impl FnMut(
 
                 return Ok(r);
             }
-            
-            return Err(Status::unauthenticated("unauthorized"));
+
+            return Err(Status::unauthenticated("Unauthorized"));
         }
 
         Ok(r)

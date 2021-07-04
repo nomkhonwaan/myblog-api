@@ -13,7 +13,7 @@ alcoholic_jwt = { git = "https://cl.tvl.fyi/depot", branch = "canon" }
 chrono = "0.4"
 clap = "3.0.0-beta.2"
 mongodb = "2.0.0-beta.2"
-myblog-proto-rust = { path = "../myblog-proto-rust" }
+myblog-proto-rust = { git = "https://github.com/nomkhonwaan/myblog-proto-rust", branch = "main" }
 prost-types = "0.7.0"
 reqwest = { version = "0.11", features = ["json"] }
 serde = "1.0.126"

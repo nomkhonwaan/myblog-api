@@ -1,18 +1,20 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
 use mongodb::{bson::doc, Client, Database, options::ClientOptions};
+use myblog_proto_rust::myblog::proto::auth::auth_service_server::AuthServiceServer;
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
 use tokio::fs;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 
+use crate::auth::service::MyAuthService;
+use crate::auth::user::MongoUserRepository;
 use crate::blog::{
-    post::MongoPostRepository,
-    service::MyBlogServiceServer,
-    taxonomy::MongoTaxonomyRepository,
+    post::MongoPostRepository, service::MyBlogService, taxonomy::MongoTaxonomyRepository,
 };
 
 mod auth;
 mod blog;
+mod discussion;
 mod encoding;
 mod storage;
 
@@ -33,14 +35,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .about("Provide public and private key pairs for enabling TLS")
                 .long("tls-certificate")
                 .takes_value(true)
-                .requires("tls-certificate-key")
+                .requires("tls-certificate-key"),
         )
         .arg(
             Arg::new("tls-certificate-key")
                 .about("Provide public and private key paris for enabling TLS")
                 .long("tls-certificate-key")
                 .takes_value(true)
-                .requires("tls-certificate")
+                .requires("tls-certificate"),
         )
         .arg(
             Arg::new("mongodb-uri")
@@ -68,12 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = matches.value_of("listen-address").unwrap().parse().unwrap();
 
     // TODO: need to get a database name from the connection string instead
-    let database = connect_mongodb(matches.value_of("mongodb-uri").unwrap(), &"beta_nomkhonwaan_com").await?;
-
-    let authority = matches.value_of("authority").unwrap();
-    let audience = matches.value_of("audience").unwrap();
-    // Fetch the JSON Web Key Sets for using on the token validation
-    let jwks = fetch_jwks(&format!("{}{}", authority, ".well-known/jwks.json")).await?;
+    let database = connect_mongodb(
+        matches.value_of("mongodb-uri").unwrap(),
+        &"beta_nomkhonwaan_com",
+    )
+        .await?;
 
     let mut builder = Server::builder();
 
@@ -87,17 +88,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("server listening on {}", addr);
 
-    builder.add_service(BlogServiceServer::with_interceptor(
-        MyBlogServiceServer::builder()
-            .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
-            .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
-            .build(),
-        auth::intercept(authority.to_string(), audience.to_string(), jwks),
-    )).serve(addr).await?;
+    let authority = matches.value_of("authority").unwrap();
+    let interceptor = auth::new_interceptor(
+        authority.to_string(),
+        matches.value_of("audience").unwrap().to_string(),
+        fetch_jwks(&format!("{}{}", authority, ".well-known/jwks.json")).await?,
+    );
+
+    builder
+        .add_service(AuthServiceServer::with_interceptor(
+            MyAuthService::builder()
+                .with_user_repository(Box::from(MongoUserRepository::new(database.collection("users"))))
+                .build(),
+            interceptor.clone(),
+        ))
+        .add_service(BlogServiceServer::with_interceptor(
+            MyBlogService::builder()
+                .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
+                .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
+                .build(),
+            interceptor.clone(),
+        ))
+        .serve(addr)
+        .await?;
 
     Ok(())
 }
 
+/// Perform a database connection to MongoDB.
 async fn connect_mongodb(uri: &str, database: &str) -> Result<Database, mongodb::error::Error> {
     let client_options = ClientOptions::parse(uri).await?;
     let client = Client::with_options(client_options)?;
@@ -112,6 +130,7 @@ async fn connect_mongodb(uri: &str, database: &str) -> Result<Database, mongodb:
     }
 }
 
+/// Retrieve the JWKS JSON file from the authority server and parse it into a JWKS object.
 async fn fetch_jwks(uri: &str) -> Result<JWKS, Box<dyn std::error::Error>> {
     let response = reqwest::get(uri).await?;
     let jwks = response.json::<JWKS>().await?;
