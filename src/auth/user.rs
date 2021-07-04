@@ -11,6 +11,7 @@ use crate::encoding::bson::{Marshaler, Unmarshaler};
 #[tonic::async_trait]
 pub trait UserRepository: Send + Sync + 'static {
     async fn create(&self, u: &mut User) -> Result<(), Box<dyn std::error::Error>>;
+    async fn find_by_user(&self, user: &str) -> Result<Option<User>, Box<dyn std::error::Error>>;
 }
 
 /// An implementation of the UserRepository specifies with MongoDB.
@@ -27,24 +28,35 @@ impl MongoUserRepository {
 #[tonic::async_trait]
 impl UserRepository for MongoUserRepository {
     async fn create(&self, u: &mut User) -> Result<(), Box<dyn std::error::Error>> {
-        match self.collection.insert_one(&u.marshal_bson(), None).await {
-            Ok(result) => {
-                u.id = result.inserted_id.as_object_id()?.to_hex();
-                Ok(())
-            }
-            Err(e) => e,
+        if u.id.is_empty() {
+            u.id = ObjectId::new().to_hex();
         }
+
+        let result = self.collection.insert_one(&u.marshal_bson()?, None).await?;
+        u.id = result.inserted_id.as_object_id().unwrap().to_hex();
+
+        Ok(())
+    }
+
+    async fn find_by_user(&self, user: &str) -> Result<Option<User>, Box<dyn std::error::Error>> {
+        let filter = doc! {"user": user };
+
+        if let Some(document) = self.collection.find_one(filter, None).await? {
+            return Ok(Some(User::unmarshal_bson(&document)?));
+        }
+
+        Ok(None)
     }
 }
 
 impl Marshaler for User {
-    fn marshal_bson(&self) -> Result<Document, Box<dyn std::error::Error>> {
+    fn marshal_bson(&self) -> Result<Document, mongodb::bson::oid::Error> {
         let mut document = doc! {
             "_id": ObjectId::from_str(self.id.as_str())?,
             "user": self.user.as_str(),
             "displayName": self.display_name.as_str(),
             "profilePicture": self.profile_picture.as_str(),
-            "createdAt": self.created_at.as_ref().unwrap().seconds * 1000,
+            "createdAt": DateTime::from_millis(self.created_at.as_ref().unwrap().seconds * 1000),
         };
 
         if self.updated_at.is_some() {
