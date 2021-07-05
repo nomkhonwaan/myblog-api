@@ -21,15 +21,13 @@ impl AuthService for MyAuthService {
     async fn create_user(&self, request: Request<CreateUserRequest>) -> Result<Response<CreateUserResponse>, Status> {
         let sub = match request.extensions().get::<Claims>() {
             Some(claims) => Ok(claims.sub.clone()),
-            None => Err(Status::unauthenticated("Forbidden")),
+            _ => Err(Status::unauthenticated("Forbidden")),
+        }?;
+        let mut user = match request.into_inner().user {
+            Some(user) => Ok(user),
+            _ => Err(Status::invalid_argument("Missing required 'user' field"))
         }?;
 
-        let r = request.into_inner();
-        if r.user.is_none() {
-            return Err(Status::invalid_argument("Missing required 'user' field"));
-        }
-
-        let mut user = r.user.unwrap();
         user.user = sub;
         
         let existing_user = self.user_repository.find_by_user(user.user.as_str()).await
