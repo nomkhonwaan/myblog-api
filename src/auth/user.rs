@@ -32,8 +32,7 @@ impl UserRepository for MongoUserRepository {
             u.id = ObjectId::new().to_hex();
         }
 
-        let result = self.collection.insert_one(&u.marshal_bson()?, None).await?;
-        u.id = result.inserted_id.as_object_id().unwrap().to_hex();
+        self.collection.insert_one(&u.marshal_bson()?, None).await?;
 
         Ok(())
     }
