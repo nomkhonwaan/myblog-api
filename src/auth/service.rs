@@ -1,7 +1,6 @@
 use myblog_proto_rust::myblog::proto::auth::{
     auth_service_server::AuthService,
     CreateUserRequest, CreateUserResponse,
-    User,
 };
 use tonic::{Request, Response, Status};
 
