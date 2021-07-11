@@ -1,8 +1,11 @@
 use alcoholic_jwt::JWKS;
 use clap::{App, Arg};
 use mongodb::{bson::doc, Client, Database, options::ClientOptions};
-use myblog_proto_rust::myblog::proto::auth::auth_service_server::AuthServiceServer;
-use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
+use myblog_proto_rust::myblog::proto::{
+    auth::auth_service_server::AuthServiceServer,
+    blog::blog_service_server::BlogServiceServer,
+    discussion::discussion_service_server::DiscussionServiceServer,
+};
 use tokio::fs;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 
@@ -11,6 +14,8 @@ use crate::auth::user::MongoUserRepository;
 use crate::blog::{
     post::MongoPostRepository, service::MyBlogService, taxonomy::MongoTaxonomyRepository,
 };
+use crate::discussion::comment::MongoCommentRepository;
+use crate::discussion::service::MyDiscussionService;
 
 mod auth;
 mod blog;
@@ -106,6 +111,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             MyBlogService::builder()
                 .with_post_repository(Box::from(MongoPostRepository::new(database.collection("posts"))))
                 .with_taxonomy_repository(Box::from(MongoTaxonomyRepository::new(database.collection("taxonomies"))))
+                .build(),
+            interceptor.clone(),
+        ))
+        .add_service(DiscussionServiceServer::with_interceptor(
+            MyDiscussionService::builder()
+                .with_comment_repository(Box::from(MongoCommentRepository::new(database.collection("comments"))))
                 .build(),
             interceptor.clone(),
         ))
