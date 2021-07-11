@@ -43,8 +43,8 @@ impl Marshaler for Comment {
         let mut document = doc! {
             "_id": ObjectId::from_str(self.id.as_str())?,
             "status": self.status,
-            "text": self.status,
-            "author": ObjectId::from_str(self.author.as_ref().unwrap().id.as_str())?,
+            "text": self.text.as_str(),
+            "author": self.author.as_ref().unwrap().id.as_str(),
             "children": self.children
                 .iter()
                 .map(|c| ObjectId::from_str(c.id.as_str()))

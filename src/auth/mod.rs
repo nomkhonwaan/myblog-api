@@ -1,4 +1,4 @@
-use alcoholic_jwt::{token_kid, validate, Validation, JWKS};
+use alcoholic_jwt::{JWKS, token_kid, validate, Validation};
 use serde::{Deserialize, Serialize};
 use tonic::{Request, Status};
 
@@ -7,9 +7,9 @@ pub mod user;
 
 /// User context that deserializes from the JSON Web Token string.
 #[derive(Debug, Deserialize, Serialize)]
-struct Claims {
-    sub: String,
-    permissions: Vec<String>,
+pub struct Claims {
+    pub sub: String,
+    pub permissions: Vec<String>,
 }
 
 /// The gRPC interceptor for validating and extracting user info from the Bearer token (if exists).

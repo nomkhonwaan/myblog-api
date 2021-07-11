@@ -17,3 +17,7 @@ run:
 	$(CARGO) run --package myblog-api --bin myblog-api -- \
 		--mongodb-uri="${MONGODB_URI}" \
 		--authority="${AUTHORITY}" --audience="${AUDIENCE}"
+
+.PHONY: build
+build:
+	$(CARGO) build --release

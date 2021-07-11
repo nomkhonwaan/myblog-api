@@ -27,15 +27,15 @@ impl AuthService for MyAuthService {
             _ => Err(Status::invalid_argument("Missing required 'user' field"))
         }?;
 
-        user.user = sub;
-        
-        let existing_user = self.user_repository.find_by_user(user.user.as_str()).await
+        user.id = sub;
+
+        let existing_user = self.user_repository.find_by_id(user.id.as_str()).await
             .or_else(|err| Err(Status::internal(err.to_string())))?;
         if existing_user.is_some() {
             return Ok(Response::new(CreateUserResponse { user: existing_user }));
         }
 
-        match self.user_repository.create(&mut user).await {
+        match self.user_repository.create(&user).await {
             Ok(_) => Ok(Response::new(CreateUserResponse { user: Some(user) })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
