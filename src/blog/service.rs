@@ -48,7 +48,7 @@ impl BlogService for MyBlogService {
             .with_offset(r.offset)
             .with_limit(r.limit);
 
-        match self.post_repository.find_all(q).await {
+        match self.post_repository.find_all(&q).await {
             Ok(posts) => Ok(Response::new(ListPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
@@ -65,7 +65,7 @@ impl BlogService for MyBlogService {
             .with_offset(r.offset)
             .with_limit(r.limit);
 
-        match self.post_repository.find_all(q).await {
+        match self.post_repository.find_all(&q).await {
             Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
@@ -73,9 +73,21 @@ impl BlogService for MyBlogService {
 
     async fn list_post_comments(
         &self,
-        _request: Request<ListPostCommentsRequest>,
+        request: Request<ListPostCommentsRequest>,
     ) -> Result<Response<ListPostCommentsResponse>, Status> {
-        Ok(Response::new(ListPostCommentsResponse { comments: vec![] }))
+        let r = request.into_inner();
+        let post = match r.post {
+            Some(post) => Ok(post),
+            _ => Err(Status::invalid_argument("Missing required 'post' field")),
+        }?;
+        let q = PostQuery::builder()
+            .with_offset(r.offset)
+            .with_limit(r.limit);
+
+        match self.post_repository.find_post_comments(post.id.as_str(), &q).await {
+            Ok(comments) => Ok(Response::new(ListPostCommentsResponse { comments })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
     }
 
     async fn list_post_attachments(
