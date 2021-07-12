@@ -18,8 +18,8 @@ use crate::encoding::bson::Unmarshaler;
 #[tonic::async_trait]
 pub trait PostRepository: Send + Sync + 'static {
     async fn find_by_id(&self, id: &str) -> Result<Option<Post>, Box<dyn std::error::Error>>;
-    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>>;
-    async fn find_post_comments(&self, id: &str, q: PostQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>>;
+    async fn find_all(&self, q: &PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>>;
+    async fn find_post_comments(&self, id: &str, q: &PostQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>>;
     async fn find_post_attachments(&self, id: &str) -> Result<Vec<File>, Box<dyn std::error::Error>>;
 }
 
@@ -88,7 +88,7 @@ impl PostRepository for MongoPostRepository {
         Ok(None)
     }
 
-    async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
+    async fn find_all(&self, q: &PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
         let mut pipeline: Vec<Document> = vec![];
 
         if let Some(status) = q.status {
@@ -102,7 +102,7 @@ impl PostRepository for MongoPostRepository {
             }
         }
 
-        if let Some(category) = q.category {
+        if let Some(category) = &q.category {
             pipeline
                 .push(doc! {"$match": {"categories": ObjectId::from_str(category.id.as_str())?}});
         }
@@ -128,7 +128,7 @@ impl PostRepository for MongoPostRepository {
         Ok(result)
     }
 
-    async fn find_post_comments(&self, id: &str, q: PostQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+    async fn find_post_comments(&self, id: &str, q: &PostQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
         let pipeline = vec![
             doc! {"$match": {"_id": ObjectId::from_str(id)?}},
             doc! {"$lookup": {"from": "comments", "localField": "comments", "foreignField": "_id", "as": "comments"}},
