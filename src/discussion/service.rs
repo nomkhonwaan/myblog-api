@@ -31,7 +31,7 @@ impl DiscussionService for MyDiscussionService {
         }?;
         let mut comment = match request.into_inner().comment {
             Some(comment) => Ok(comment),
-            _ => Err(Status::invalid_argument("Missing required 'comment' field"))
+            _ => Err(Status::invalid_argument("Missing required 'comment' field")),
         }?;
 
         let mut user = User::default();
