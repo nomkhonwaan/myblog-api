@@ -6,7 +6,7 @@ DATE=$(date +'%Y-%m-%d')
 TIME=$(date +'%H:%m:%S')
 export DATETIME="${DATE}T${TIME}.000Z"
 
-TEMPLATE='{"comment":{"text":"Hello, world!","createdAt":"${DATETIME}","status":"Published"}}'
+TEMPLATE='{"comment": {"text": "Hello, world!", "createdAt": "${DATETIME}", "status": "Published"}}'
 BODY=$(echo $TEMPLATE | envsubst)
 
 grpcurl -plaintext \
