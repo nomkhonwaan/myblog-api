@@ -1,10 +1,13 @@
 use std::str::FromStr;
 use std::time::SystemTime;
 
-use mongodb::{bson::doc, bson::oid::ObjectId, bson::Document, Collection, Cursor};
-use myblog_proto_rust::myblog::proto::auth::User;
-use myblog_proto_rust::myblog::proto::blog::{Post, PostStatus, Taxonomy};
-use myblog_proto_rust::myblog::proto::storage::File;
+use mongodb::{bson::doc, bson::Document, bson::oid::ObjectId, Collection, Cursor};
+use myblog_proto_rust::myblog::proto::{
+    auth::User,
+    blog::{Post, PostStatus, Taxonomy},
+    discussion::Comment,
+    storage::File,
+};
 use prost_types::Timestamp;
 use tokio_stream::StreamExt;
 use tonic;
@@ -14,7 +17,10 @@ use crate::encoding::bson::Unmarshaler;
 /// A post repository definition.
 #[tonic::async_trait]
 pub trait PostRepository: Send + Sync + 'static {
+    async fn find_by_id(&self, id: &str) -> Result<Option<Post>, Box<dyn std::error::Error>>;
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>>;
+    async fn find_post_attachments(&self, id: &str) -> Result<Vec<File>, Box<dyn std::error::Error>>;
+    async fn find_post_comments(&self, id: &str) -> Result<Vec<Comment>, Box<dyn std::error::Error>>;
 }
 
 /// A post query builder.
@@ -72,6 +78,16 @@ impl MongoPostRepository {
 
 #[tonic::async_trait]
 impl PostRepository for MongoPostRepository {
+    async fn find_by_id(&self, id: &str) -> Result<Option<Post>, Box<dyn std::error::Error>> {
+        let filter = doc! {"_id": ObjectId::from_str(id)?};
+
+        if let Some(document) = self.collection.find_one(filter, None).await? {
+            return Ok(Some(Post::unmarshal_bson(&document)?));
+        }
+
+        Ok(None)
+    }
+
     async fn find_all(&self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
         let mut pipeline: Vec<Document> = vec![];
 
@@ -102,11 +118,61 @@ impl PostRepository for MongoPostRepository {
             doc! {"$limit": q.limit as i64},
         ]);
 
-        let mut cursor: Cursor<Document> = self.collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.collection.aggregate(pipeline, None).await?;
         let mut result: Vec<Post> = vec![];
 
         while let Some(document) = cursor.try_next().await? {
             result.push(Post::unmarshal_bson(&document)?);
+        }
+
+        Ok(result)
+    }
+
+    async fn find_post_attachments(&self, id: &str) -> Result<Vec<File>, Box<dyn std::error::Error>> {
+        let pipeline = vec![
+            doc! {"$match": {"_id": ObjectId::from_str(id)}},
+            doc! {"$lookup": {"from": "files", "localField": "attachments", "foreignField": "_id", "as": "attachments"}},
+            doc! {"$project": {"attachments": 1}},
+        ];
+
+        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut result: Vec<File> = vec![];
+
+        while let Some(document) = cursor.try_next().await? {
+            result = document.get_array("attachments")
+                .and_then(|files| {
+                    files
+                        .into_iter()
+                        .map(|file| file.as_document())
+                        .filter_map(|file| file)
+                        .map(|file| File::unmarshal_bson(file))
+                        .collect::<Result<Vec<File>, _>>()
+                })?;
+        }
+
+        Ok(result)
+    }
+
+    async fn find_post_comments(&self, id: &str) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+        let pipeline = vec![
+            doc! {"$match": {"_id": ObjectId::from_str(id)}},
+            doc! {"$lookup": {"from": "comments", "localField": "comments", "foreignField": "_id", "as": "comments"}},
+            doc! {"$project": {"comments": 1}},
+        ];
+
+        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut result: Vec<Comment> = vec![];
+
+        while let Some(document) = cursor.try_next().await? {
+            result = document.get_array("comments")
+                .and_then(|comments| {
+                    comments
+                        .into_iter()
+                        .map(|comment| comment.as_document())
+                        .filter_map(|comment| comment)
+                        .map(|comment| Comment::unmarshal_bson(comment))
+                        .collect::<Result<Vec<Comment>, _>>()
+                })?;
         }
 
         Ok(result)
@@ -117,8 +183,8 @@ impl Unmarshaler for Post {
     fn unmarshal_bson(
         document: &Document,
     ) -> Result<Self, mongodb::bson::document::ValueAccessError>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         Ok(Post {
             id: document.get_object_id("_id")?.to_hex(),
