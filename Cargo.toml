@@ -5,8 +5,8 @@ authors = ["Natcha Luangaroonchai <me@nomkhonwaan.com>"]
 edition = "2018"
 
 [[bin]]
-name = "myblog-api"
-path = "src/main.rs"
+name = "blog-service"
+path = "src/bin/blog-service.rs"
 
 [dependencies]
 alcoholic_jwt = { git = "https://cl.tvl.fyi/depot", branch = "canon" }

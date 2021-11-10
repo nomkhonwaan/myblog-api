@@ -1,7 +1,6 @@
 use myblog_proto_rust::myblog::proto::blog::{
-    blog_service_server::BlogService, ListCategoriesResponse, ListPostAttachmentsRequest,
-    ListPostAttachmentsResponse, ListPostCommentsRequest, ListPostCommentsResponse,
-    ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
+    blog_service_server::BlogService, ListCategoriesResponse, ListPublishedPostsRequest,
+    ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
     ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType,
 };
 use tonic::{Request, Response, Status};
@@ -71,33 +70,33 @@ impl BlogService for MyBlogService {
         }
     }
 
-    async fn list_post_comments(
-        &self,
-        request: Request<ListPostCommentsRequest>,
-    ) -> Result<Response<ListPostCommentsResponse>, Status> {
-        let r = request.into_inner();
-        let post = match r.post {
-            Some(post) => Ok(post),
-            _ => Err(Status::invalid_argument("Missing required 'post' field")),
-        }?;
-        let q = PostQuery::builder()
-            .with_offset(r.offset)
-            .with_limit(r.limit);
+    // async fn list_post_comments(
+    //     &self,
+    //     request: Request<ListPostCommentsRequest>,
+    // ) -> Result<Response<ListPostCommentsResponse>, Status> {
+    //     let r = request.into_inner();
+    //     let post = match r.post {
+    //         Some(post) => Ok(post),
+    //         _ => Err(Status::invalid_argument("Missing required 'post' field")),
+    //     }?;
+    //     let q = PostQuery::builder()
+    //         .with_offset(r.offset)
+    //         .with_limit(r.limit);
+    //
+    //     match self.post_repository.find_post_comments(post.id.as_str(), &q).await {
+    //         Ok(comments) => Ok(Response::new(ListPostCommentsResponse { comments })),
+    //         Err(e) => Err(Status::internal(e.to_string())),
+    //     }
+    // }
 
-        match self.post_repository.find_post_comments(post.id.as_str(), &q).await {
-            Ok(comments) => Ok(Response::new(ListPostCommentsResponse { comments })),
-            Err(e) => Err(Status::internal(e.to_string())),
-        }
-    }
-
-    async fn list_post_attachments(
-        &self,
-        _request: Request<ListPostAttachmentsRequest>,
-    ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
-        Ok(Response::new(ListPostAttachmentsResponse {
-            attachments: vec![],
-        }))
-    }
+    // async fn list_post_attachments(
+    //     &self,
+    //     _request: Request<ListPostAttachmentsRequest>,
+    // ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
+    //     Ok(Response::new(ListPostAttachmentsResponse {
+    //         attachments: vec![],
+    //     }))
+    // }
 }
 
 #[derive(Default)]
