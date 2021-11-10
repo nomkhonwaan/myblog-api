@@ -195,23 +195,17 @@ impl Unmarshaler for Post {
             status: document.get_i32("status")?.to_owned(),
             markdown: document.get_str("markdown")?.to_owned(),
             html: document.get_str("html")?.to_owned(),
-            published_at: None,
-            // published_at: match document.get_datetime("publishedAt") {
-            //     // Ok(published_at) => {
-            //     //     Some(Timestamp::from(SystemTime::from(published_at.to_owned()))),
-            //     //     // Some(Timestamp::from(SystemTime::from(published_at.to_owned())))
-            //     // }
-            //     // Ok(published_at) => {
-            //     //     prost_types::Timestamp{ seconds: 0, nanos: 0 }
-            //     // }
-            //     // _ => None,
-            // },
-            author: None,
-            // author: Some(
-            //     document
-            //         .get_document("author")
-            //         .and_then(|author| User::unmarshal_bson(author))?,
-            // ),
+            published_at: match document.get_datetime("publishedAt") {
+                Ok(published_at) => {
+                    Some(Timestamp::from(SystemTime::from(published_at.to_owned())))
+                }
+                _ => None,
+            },
+            author: Some(
+                document
+                    .get_document("author")
+                    .and_then(|author| User::unmarshal_bson(author))?,
+            ),
             categories: document.get_array("categories").and_then(|categories| {
                 categories
                     .into_iter()
@@ -231,15 +225,13 @@ impl Unmarshaler for Post {
                 Ok(featured_image) => Some(File::unmarshal_bson(featured_image)?),
                 _ => None,
             },
-            created_at: None,
-            // created_at: Some(document.get_datetime("createdAt").and_then(|created_at| {
-            //     Ok(Timestamp::from(SystemTime::from(created_at.to_owned())))
-            // })?),
-            updated_at: None,
-            // updated_at: match document.get_datetime("updatedAt") {
-            //     Ok(updated_at) => Some(Timestamp::from(SystemTime::from(updated_at.to_owned()))),
-            //     _ => None,
-            // },
+            created_at: Some(document.get_datetime("createdAt").and_then(|created_at| {
+                Ok(Timestamp::from(SystemTime::from(created_at.to_owned())))
+            })?),
+            updated_at: match document.get_datetime("updatedAt") {
+                Ok(updated_at) => Some(Timestamp::from(SystemTime::from(updated_at.to_owned()))),
+                _ => None,
+            },
         })
     }
 }
