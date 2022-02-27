@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use mongodb::{bson::doc, options::ClientOptions, Client, Database};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
 use tonic::transport::Server;
@@ -11,19 +11,19 @@ use myblog_api::blog::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let matches = App::new("blog-service")
-        .about("Part of myblog-api provides all blogging APIs")
+    let matches = Command::new("blog-service")
+        .override_help("Part of myblog-api provides all blogging APIs")
         .version("3.0.0")
         .arg(
             Arg::new("listen-address")
                 .default_value("[::1]:8082")
-                .about("Specify the host/IP and port to which gRPC server binds for listening")
+                .help("Specify the host/IP and port to which gRPC server binds for listening")
                 .long("listen-address")
                 .takes_value(true),
         )
         .arg(
             Arg::new("mongodb-uri")
-                .about("Specify URI which can be used to create a MongoDB instance")
+                .help("Specify URI which can be used to create a MongoDB instance")
                 .long("mongodb-uri")
                 .takes_value(true)
                 .required(true),
