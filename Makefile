@@ -15,8 +15,7 @@ clean:
 .PHONY: run
 run:
 	$(CARGO) run --package myblog-api --bin blog-service -- \
-		--mongodb-uri="${MONGODB_URI}" \
-		--authority="${AUTHORITY}" --audience="${AUDIENCE}"
+		--mongodb-uri="${MONGODB_URI}"
 
 .PHONY: build
 build:
