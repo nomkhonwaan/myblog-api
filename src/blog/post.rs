@@ -29,6 +29,7 @@ pub struct PostQuery {
     /* Filters */
     status: Option<PostStatus>,
     category: Option<Taxonomy>,
+    tag: Option<Taxonomy>,
 
     /* Pagination Options */
     offset: u32,
@@ -51,6 +52,11 @@ impl PostQuery {
 
     pub fn with_category(mut self, category: Option<Taxonomy>) -> Self {
         self.category = category;
+        self
+    }
+
+    pub fn with_tag(mut self, tag: Option<Taxonomy>) -> Self {
+        self.tag = tag;
         self
     }
 
@@ -105,6 +111,10 @@ impl PostRepository for MongoPostRepository {
         if let Some(category) = &q.category {
             pipeline
                 .push(doc! {"$match": {"categories": ObjectId::from_str(category.id.as_str())?}});
+        }
+        if let Some(tag) = &q.tag {
+            pipeline
+                .push(doc! {"$match": {"tags": ObjectId::from_str(tag.id.as_str())?}});
         }
 
         pipeline.append(&mut vec![
@@ -185,8 +195,8 @@ impl Unmarshaler for Post {
     fn unmarshal_bson(
         document: &Document,
     ) -> Result<Self, mongodb::bson::document::ValueAccessError>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         Ok(Post {
             id: document.get_object_id("_id")?.to_hex(),
