@@ -6,17 +6,26 @@ REVISION := $(shell $(GIT) rev-parse HEAD)$(shell if ! $(GIT) diff --no-ext-diff
 # Rust options
 CARGO	 ?= cargo
 
-.DEFAULT_GOAL := run
+.DEFAULT_GOAL := build
 
 .PHONY: clean
 clean:
 	$(CARGO) clean
 
-.PHONY: run
-run:
-	$(CARGO) run --package myblog-api --bin blog-service -- \
+.PHONY: run-auth-service
+run-auth-service:
+	$(CARGO) run --package myblog-api --bin auth-service -- \
 		--mongodb-uri="${MONGODB_URI}"
 
+.PHONY: run-blog-service
+run-blog-service:
+	$(CARGO) run --package myblog-api --bin blog-service -- \
+		--mongodb-uri="${MONGODB_URI}"
+		
+.PHONY: run-discussion-service
+run-discussion-service:
+	$(CARGO) run --package myblog-api --bin discussion-service -- \
+		--mongodb-uri="${MONGODB_URI}"
 .PHONY: build
 build:
 	$(CARGO) build --release
