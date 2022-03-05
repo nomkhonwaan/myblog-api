@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use clap::{Arg, Command};
-use mongodb::{bson::doc, options::ClientOptions, Client, Database};
+use mongodb::{bson::doc, Client, Database, options::ClientOptions};
 use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServer;
 use tonic::transport::Server;
 
@@ -34,8 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = connect_mongodb(
         matches.value_of("mongodb-uri").unwrap(),
         &"beta_nomkhonwaan_com",
-    )
-    .await?;
+    ).await?;
 
     println!("blog-service listening on {}", addr);
     Server::builder()
