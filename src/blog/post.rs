@@ -248,7 +248,7 @@ impl Unmarshaler for Post {
 
 #[cfg(test)]
 mod tests {
-    use myblog_proto_rust::myblog::proto::blog::PostStatus;
+    use myblog_proto_rust::myblog::proto::blog::{PostStatus, Taxonomy, TaxonomyType};
 
     use crate::blog::post::PostQuery;
 
@@ -269,10 +269,44 @@ mod tests {
         // Given
 
         // When
-        let q: PostQuery = PostQuery::builder().with_status(PostStatus::Published);
+        let q = PostQuery::builder().with_status(PostStatus::Published);
 
         // When
         assert_eq!(PostStatus::Published, q.status.unwrap());
+    }
+
+    #[test]
+    fn post_query_with_category() {
+        // Given
+        let cat = Taxonomy {
+            id: String::from("1"),
+            name: String::from("Test"),
+            slug: String::from("test-1"),
+            r#type: TaxonomyType::Category as i32,
+        };
+
+        // When
+        let q: PostQuery = PostQuery::builder().with_category(Some(cat));
+
+        // Then
+        assert_eq!("1", q.category.unwrap().id);
+    }
+    
+    #[test]
+    fn post_query_with_tag() {
+        // Given
+        let tag = Taxonomy{
+            id: String::from("2"),
+            name: String::from("Test"),
+            slug: String::from("test-2"),
+            r#type: TaxonomyType::Tag as i32,
+        };
+        
+        // When
+        let q = PostQuery::builder().with_tag(Some(tag));
+        
+        // Then
+        assert_eq!("2", q.tag.unwrap().id);
     }
 
     #[test]
@@ -280,7 +314,7 @@ mod tests {
         // Given
 
         // When
-        let q: PostQuery = PostQuery::builder().with_offset(19);
+        let q = PostQuery::builder().with_offset(19);
 
         // Then
         assert_eq!(19, q.offset);
@@ -291,7 +325,7 @@ mod tests {
         // Given
 
         // When
-        let q: PostQuery = PostQuery::builder().with_limit(6);
+        let q = PostQuery::builder().with_limit(6);
 
         // Then
         assert_eq!(6, q.limit);
