@@ -6,7 +6,9 @@ use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogServiceServ
 use tonic::transport::Server;
 
 use myblog_api::blog::{
-    post::MongoPostRepository, service::MyBlogService, taxonomy::MongoTaxonomyRepository,
+    post::MongoPostRepository,
+    service::MyBlogService,
+    taxonomy::MongoTaxonomyRepository,
 };
 
 #[tokio::main]
