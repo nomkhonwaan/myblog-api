@@ -5,16 +5,16 @@ authors = ["Natcha Luangaroonchai <me@nomkhonwaan.com>"]
 edition = "2018"
 
 [[bin]]
-name = "myblog-api"
-path = "src/main.rs"
+name = "blog-service"
+path = "src/bin/blog-service.rs"
 
 [dependencies]
 alcoholic_jwt = { git = "https://cl.tvl.fyi/depot", branch = "canon" }
 chrono = "0.4"
-clap = "3.0.0-beta.2"
+clap = "3.1.2"
 mongodb = "2.0.0-beta.2"
 myblog-proto-rust = { git = "https://github.com/nomkhonwaan/myblog-proto-rust", branch = "main" }
-prost-types = "0.8"
+prost-types = "0.9"
 reqwest = { version = "0.11", features = ["json"] }
 serde = "1.0.126"
 serde_json = "1.0.64"

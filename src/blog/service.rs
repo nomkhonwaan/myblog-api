@@ -1,8 +1,14 @@
 use myblog_proto_rust::myblog::proto::blog::{
-    blog_service_server::BlogService, ListCategoriesResponse, ListPostAttachmentsRequest,
-    ListPostAttachmentsResponse, ListPostCommentsRequest, ListPostCommentsResponse,
-    ListPublishedPostsRequest, ListPublishedPostsResponse, ListTaxonomyPublishedPostsRequest,
-    ListTaxonomyPublishedPostsResponse, PostStatus, TaxonomyType,
+    blog_service_server::BlogService,
+    ListCategoriesResponse,
+    ListCategoryPublishedPostsRequest,
+    ListCategoryPublishedPostsResponse,
+    ListPublishedPostsRequest,
+    ListPublishedPostsResponse,
+    ListTagPublishedPostsRequest,
+    ListTagPublishedPostsResponse,
+    PostStatus,
+    TaxonomyType,
 };
 use tonic::{Request, Response, Status};
 
@@ -54,50 +60,66 @@ impl BlogService for MyBlogService {
         }
     }
 
-    async fn list_taxonomy_published_posts(
+    async fn list_category_published_posts(
         &self,
-        request: Request<ListTaxonomyPublishedPostsRequest>,
-    ) -> Result<Response<ListTaxonomyPublishedPostsResponse>, Status> {
+        request: Request<ListCategoryPublishedPostsRequest>,
+    ) -> Result<Response<ListCategoryPublishedPostsResponse>, Status> {
         let r = request.into_inner();
         let q = PostQuery::builder()
             .with_status(PostStatus::Published)
-            .with_category(r.taxonomy)
+            .with_category(r.category)
             .with_offset(r.offset)
             .with_limit(r.limit);
 
         match self.post_repository.find_all(&q).await {
-            Ok(posts) => Ok(Response::new(ListTaxonomyPublishedPostsResponse { posts })),
+            Ok(posts) => Ok(Response::new(ListCategoryPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
     }
 
-    async fn list_post_comments(
-        &self,
-        request: Request<ListPostCommentsRequest>,
-    ) -> Result<Response<ListPostCommentsResponse>, Status> {
+    async fn list_tag_published_posts(
+        &self, request: Request<ListTagPublishedPostsRequest>,
+    ) -> Result<Response<ListTagPublishedPostsResponse>, Status> {
         let r = request.into_inner();
-        let post = match r.post {
-            Some(post) => Ok(post),
-            _ => Err(Status::invalid_argument("Missing required 'post' field")),
-        }?;
         let q = PostQuery::builder()
+            .with_status(PostStatus::Published)
+            .with_tag(r.tag)
             .with_offset(r.offset)
             .with_limit(r.limit);
 
-        match self.post_repository.find_post_comments(post.id.as_str(), &q).await {
-            Ok(comments) => Ok(Response::new(ListPostCommentsResponse { comments })),
+        match self.post_repository.find_all(&q).await {
+            Ok(posts) => Ok(Response::new(ListTagPublishedPostsResponse { posts })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
     }
 
-    async fn list_post_attachments(
-        &self,
-        _request: Request<ListPostAttachmentsRequest>,
-    ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
-        Ok(Response::new(ListPostAttachmentsResponse {
-            attachments: vec![],
-        }))
-    }
+    // async fn list_post_comments(
+    //     &self,
+    //     request: Request<ListPostCommentsRequest>,
+    // ) -> Result<Response<ListPostCommentsResponse>, Status> {
+    //     let r = request.into_inner();
+    //     let post = match r.post {
+    //         Some(post) => Ok(post),
+    //         _ => Err(Status::invalid_argument("Missing required 'post' field")),
+    //     }?;
+    //     let q = PostQuery::builder()
+    //         .with_offset(r.offset)
+    //         .with_limit(r.limit);
+    //
+    //     match self.post_repository.find_post_comments(post.id.as_str(), &q).await {
+    //         Ok(comments) => Ok(Response::new(ListPostCommentsResponse { comments })),
+    //         Err(e) => Err(Status::internal(e.to_string())),
+    //     }
+    // }
+
+    // async fn list_post_attachments(
+    //     &self,
+    //     _request: Request<ListPostAttachmentsRequest>,
+    // ) -> Result<Response<ListPostAttachmentsResponse>, Status> {
+    //     Ok(Response::new(ListPostAttachmentsResponse {
+    //         attachments: vec![],
+    //     }))
+    // }
 }
 
 #[derive(Default)]
