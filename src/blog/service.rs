@@ -148,41 +148,22 @@ impl MyBlogServiceBuilder {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use myblog_proto_rust::myblog::proto::blog::{ListPublishedPostsRequest, Post};
-//     use myblog_proto_rust::myblog::proto::blog::blog_service_server::BlogService;
-//     use tonic::Request;
-//     use tonic::transport::channel::ResponseFuture;
-//
-//     use crate::blog::post::{PostQuery, PostRepository};
-//     use crate::blog::service::MyBlogServiceServer;
-//
-//     #[derive(Default)]
-//     struct MockPostRepository {
-//         find_all_post_query: Option<PostQuery>,
-//     }
-//
-//     #[tonic::async_trait]
-//     impl PostRepository for MockPostRepository {
-//         async fn find_all(&mut self, q: PostQuery) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
-//             self.find_all_post_query = Some(q);
-//             Ok(Vec::new())
-//         }
-//     }
-//
-//     #[test]
-//     fn list_published_posts() {
-//         // Given
-//         let post_repository = MockPostRepository::default();
-//         let myblog_service_server = MyBlogServiceServer { post_repository: Box::from(post_repository) };
-//         let expected = PostQuery::builder();
-//
-//         // When
-//         let _result =
-//             myblog_service_server.list_published_posts(Request::new(ListPublishedPostsRequest { offset: 0, limit: 5 }));
-//
-//         // Then
-//         // assert_eq!(expected, post_repository.find_all_post_query.unwrap());
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    // use myblog_proto_rust::myblog::proto::blog::Post;
+    // 
+    // use crate::blog::post::PostRepository;
+    // 
+    // struct MockPostRepository {}
+    // 
+    // impl PostRepository for MockPostRepository {
+    //     async fn find_by_id(&self, id: &str) -> Result<Option<Post>, Box<dyn std::error::Error>> {
+    //         return Ok(None);
+    //     }
+    // }
+    // 
+    // #[test]
+    // fn my_blog_service_list_categories() {
+    //     // When
+    // }
+}

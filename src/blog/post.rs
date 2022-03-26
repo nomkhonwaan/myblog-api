@@ -250,7 +250,7 @@ impl Unmarshaler for Post {
 mod tests {
     use myblog_proto_rust::myblog::proto::blog::{PostStatus, Taxonomy, TaxonomyType};
 
-    use crate::blog::post::PostQuery;
+    use crate::blog::post::{MongoPostRepository, PostQuery};
 
     #[test]
     fn init_post_query() {
