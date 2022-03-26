@@ -8,6 +8,10 @@ edition = "2018"
 name = "blog-service"
 path = "src/bin/blog-service.rs"
 
+[[bin]]
+name = "bot-service"
+path = "src/bin/bot-service.rs"
+
 [dependencies]
 alcoholic_jwt = { git = "https://cl.tvl.fyi/depot", branch = "canon" }
 chrono = "0.4"
@@ -21,3 +25,4 @@ serde_json = "1.0.64"
 tokio = { version = "1.7.0", features = ["full"] }
 tokio-stream = "0.1.6"
 tonic = { git = "https://github.com/hyperium/tonic", branch = "master", features = ["tls"] }
+warp = "0.3"
