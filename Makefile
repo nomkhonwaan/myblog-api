@@ -21,11 +21,19 @@ run-auth-service:
 run-blog-service:
 	$(CARGO) run --package myblog-api --bin blog-service -- \
 		--mongodb-uri="${MONGODB_URI}"
-		
+	
+.PHONY: run-bot-service 
+run-bot-service:
+	$(CARGO) run --package myblog-api --bin bot-service -- \
+		--mongodb-uri="${MONGODB_URI}" \
+		--line-channel-id="${LINE_CHANNEL_ID}" \
+		--line-channel-secret="${LINE_CHANNEL_SECRET}"
+	
 .PHONY: run-discussion-service
 run-discussion-service:
 	$(CARGO) run --package myblog-api --bin discussion-service -- \
 		--mongodb-uri="${MONGODB_URI}"
+
 .PHONY: build
 build:
 	$(CARGO) build --release
