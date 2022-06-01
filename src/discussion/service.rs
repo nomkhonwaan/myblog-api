@@ -5,10 +5,11 @@ use myblog_proto_rust::myblog::proto::{
         discussion_service_server::DiscussionService,
     },
 };
+use myblog_proto_rust::myblog::proto::discussion::{CommentStatus, DeleteCommentRequest, GetCommentRequest, GetCommentResponse, ListPublishedCommentsRequest, ListPublishedCommentsResponse, UpdateCommentRequest, UpdateCommentResponse};
 use tonic::{Request, Response, Status};
 
 use crate::auth::Claims;
-use crate::discussion::comment::CommentRepository;
+use crate::discussion::comment::{CommentQuery, CommentRepository};
 
 pub struct MyDiscussionService {
     comment_repository: Box<dyn CommentRepository>,
@@ -42,6 +43,34 @@ impl DiscussionService for MyDiscussionService {
             Ok(_) => Ok(Response::new(CreateCommentResponse { comment: Some(comment) })),
             Err(e) => Err(Status::internal(e.to_string())),
         }
+    }
+
+    async fn list_published_comments(
+        &self,
+        request: Request<ListPublishedCommentsRequest>,
+    ) -> Result<Response<ListPublishedCommentsResponse>, Status> {
+        let r = request.into_inner();
+        let q = CommentQuery::builder()
+            .with_status(CommentStatus::Published)
+            .with_offset(r.offset)
+            .with_limit(r.limit);
+
+        match self.comment_repository.find_all(&q).await? {
+            Ok(comments) => Ok(Response::new(ListPublishedCommentsResponse { comments })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
+    }
+
+    async fn get_comment(&self, request: Request<GetCommentRequest>) -> Result<Response<GetCommentResponse>, Status> {
+        todo!()
+    }
+
+    async fn update_comment(&self, request: Request<UpdateCommentRequest>) -> Result<Response<UpdateCommentResponse>, Status> {
+        todo!()
+    }
+
+    async fn delete_comment(&self, request: Request<DeleteCommentRequest>) -> Result<Response<()>, Status> {
+        todo!()
     }
 }
 

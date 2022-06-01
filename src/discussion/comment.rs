@@ -3,7 +3,7 @@ use std::time::SystemTime;
 
 use mongodb::{bson::DateTime, bson::doc, bson::Document, bson::oid::ObjectId, Collection};
 use myblog_proto_rust::myblog::proto::auth::User;
-use myblog_proto_rust::myblog::proto::discussion::Comment;
+use myblog_proto_rust::myblog::proto::discussion::{Comment, CommentStatus};
 use prost_types::Timestamp;
 
 use crate::encoding::bson::{Marshaler, Unmarshaler};
@@ -12,6 +12,40 @@ use crate::encoding::bson::{Marshaler, Unmarshaler};
 #[tonic::async_trait]
 pub trait CommentRepository: Send + Sync + 'static {
     async fn create(&self, c: &mut Comment) -> Result<(), Box<dyn std::error::Error>>;
+    async fn find_all(&self, q: &CommentQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>>;
+}
+
+/// A comment query builder.
+#[derive(Default)]
+pub struct CommentQuery {
+    status: Option<CommentStatus>,
+    offset: u32,
+    limit: u32,
+}
+
+impl CommentQuery {
+    pub fn builder() -> Self {
+        CommentQuery {
+            offset: 0,
+            limit: 5,
+            ..Default::default()
+        }
+    }
+
+    pub fn with_status(mut self, status: CommentStatus) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    pub fn with_offset(mut self, offset: u32) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    pub fn with_limit(mut self, limit: u32) -> Self {
+        self.limit = limit;
+        self
+    }
 }
 
 /// An implementation of the CommentRepository specifies with MongoDB.
@@ -36,6 +70,33 @@ impl CommentRepository for MongoCommentRepository {
 
         Ok(())
     }
+
+    async fn find_all(&self, q: &CommentQuery) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+        // Comment always sort by `created_at` time ascending
+        let mut pipeline: Vec<Document> = vec![
+            doc! {"$sort": {"createdAt": 1}},
+        ];
+
+        if let Some(status) = q.status {
+            pipeline.push(doc! {"$match": {"status": status as i32}});
+        }
+
+        pipeline.append(&mut vec![
+            doc! {"$lookup": {"from": "users", "localField": "author", "foreignField": "_id", "as": "author"}},
+            doc! {"$unwind": {"path": "$author"}},
+            doc! {"$offset": q.offset as i64},
+            doc! {"$limit": q.limit as i64},
+        ]);
+
+        let mut cursor = self.collection.aggregate(pipeline, None).await?;
+        let mut result: Vec<Comment> = vec![];
+
+        while let Some(document) = cursor.try_next().await? {
+            result.push(Comment::unmarshal_bson(&document)?);
+        }
+
+        Ok(result)
+    }
 }
 
 impl Marshaler for Comment {
@@ -52,12 +113,14 @@ impl Marshaler for Comment {
             "createdAt": DateTime::from_millis(self.created_at.as_ref().unwrap().seconds * 1000),
         };
 
-        if self.parent.is_some() {
+        // The parent id will be present when the comment has replied to another comment.
+        if self.parent_id.is_some() {
             document.insert(
-                "parent",
-                ObjectId::from_str(self.parent.as_ref().unwrap().id.as_str())?,
-            );
+                "parent_id",
+                ObjectId::from_str(self.parent_id.as_str())?,
+            )
         }
+
         if self.updated_at.is_some() {
             document.insert(
                 "updatedAt",
@@ -85,7 +148,7 @@ impl Unmarshaler for Comment {
                     .get_document("author")
                     .and_then(|author| User::unmarshal_bson(author))?,
             ),
-            parent: None,
+            parent_id: Some(document.get_object_id("parent_id")?.to_hex()),
             children: vec![],
             created_at: Some(document.get_datetime("createdAt").and_then(|created_at| {
                 Ok(Timestamp::from(SystemTime::from(created_at.to_owned())))
