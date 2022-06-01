@@ -26,12 +26,9 @@ pub trait PostRepository: Send + Sync + 'static {
 /// A post query builder.
 #[derive(Default)]
 pub struct PostQuery {
-    /* Filters */
     status: Option<PostStatus>,
     category: Option<Taxonomy>,
     tag: Option<Taxonomy>,
-
-    /* Pagination Options */
     offset: u32,
     limit: u32,
 }
@@ -291,20 +288,20 @@ mod tests {
         // Then
         assert_eq!("1", q.category.unwrap().id);
     }
-    
+
     #[test]
     fn post_query_with_tag() {
         // Given
-        let tag = Taxonomy{
+        let tag = Taxonomy {
             id: String::from("2"),
             name: String::from("Test"),
             slug: String::from("test-2"),
             r#type: TaxonomyType::Tag as i32,
         };
-        
+
         // When
         let q = PostQuery::builder().with_tag(Some(tag));
-        
+
         // Then
         assert_eq!("2", q.tag.unwrap().id);
     }
